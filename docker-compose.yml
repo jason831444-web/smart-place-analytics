@@ -16,14 +16,22 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        REQUIREMENTS_FILE: ${BACKEND_REQUIREMENTS_FILE:-requirements-ml.txt}
     environment:
       DATABASE_URL: postgresql+psycopg://smart:smart@db:5432/smart_place
       SECRET_KEY: local-development-secret
       CORS_ORIGINS: '["http://localhost:3000"]'
       PUBLIC_BASE_URL: http://localhost:8000
       STORAGE_DIR: storage
-      CV_BACKEND: mock
+      CV_BACKEND: ${CV_BACKEND:-yolo}
+      YOLO_MODEL: ${YOLO_MODEL:-yolov8n.pt}
+      YOLO_CONFIDENCE_THRESHOLD: ${YOLO_CONFIDENCE_THRESHOLD:-0.25}
+      YOLO_DEVICE: ${YOLO_DEVICE:-cpu}
+      YOLO_FALLBACK_TO_MOCK: ${YOLO_FALLBACK_TO_MOCK:-false}
+      LIVE_PERSIST_INTERVAL_SECONDS: ${LIVE_PERSIST_INTERVAL_SECONDS:-60}
       SEED_ADMIN_EMAIL: admin@example.com
       SEED_ADMIN_PASSWORD: admin12345
     ports:
@@ -53,4 +61,3 @@ services:
 
 volumes:
   postgres_data:
-

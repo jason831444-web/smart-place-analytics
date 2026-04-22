@@ -1,4 +1,4 @@
-import type { Analysis, AnalyticsOverview, Facility, FacilityStatus, HistoryPoint } from "@/types/api";
+import type { Analysis, AnalyticsOverview, Facility, FacilityStatus, HistoryPoint, LiveAnalysis } from "@/types/api";
 
 const isServer = typeof window === "undefined";
 
@@ -54,6 +54,17 @@ export const api = {
     form.append("facility_id", String(facilityId));
     form.append("file", file);
     return request<Analysis>("/uploads/analyze", {
+      method: "POST",
+      body: form,
+      headers: authHeaders()
+    });
+  },
+  liveAnalyze: (facilityId: number, file: Blob, persist: boolean) => {
+    const form = new FormData();
+    form.append("facility_id", String(facilityId));
+    form.append("persist", String(persist));
+    form.append("file", file, `live-frame-${Date.now()}.jpg`);
+    return request<LiveAnalysis>("/live/analyze", {
       method: "POST",
       body: form,
       headers: authHeaders()

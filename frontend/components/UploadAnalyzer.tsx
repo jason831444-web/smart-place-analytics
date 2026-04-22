@@ -53,7 +53,13 @@ export function UploadAnalyzer({ facilityId }: { facilityId: number }) {
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="relative min-h-80 overflow-hidden rounded-lg bg-slate-100">
             {analysis.annotated_image_url || analysis.image_url ? (
-              <Image src={analysis.annotated_image_url ?? analysis.image_url!} alt="Annotated analysis" fill className="object-contain" />
+              <Image
+                src={analysis.annotated_image_url ?? analysis.image_url!}
+                alt="Annotated analysis"
+                fill
+                unoptimized
+                className="object-contain"
+              />
             ) : null}
           </div>
           <div className="grid content-start gap-3">

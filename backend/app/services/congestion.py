@@ -23,16 +23,22 @@ def congestion_level_for_rate(rate: float) -> str:
     return "High"
 
 
-def calculate_congestion(people_count: int, total_seats: int) -> CongestionResult:
+def calculate_congestion(
+    people_count: int,
+    total_seats: int,
+    seat_usage_factor: float = 1.0,
+) -> CongestionResult:
     safe_people = max(int(people_count), 0)
     safe_seats = max(int(total_seats), 0)
+    safe_factor = max(float(seat_usage_factor), 0.0)
 
     if safe_seats == 0:
         occupied = 0
         available = 0
         rate = 0.0
     else:
-        occupied = min(safe_people, safe_seats)
+        estimated_occupied = round(safe_people * safe_factor)
+        occupied = min(max(estimated_occupied, 0), safe_seats)
         available = max(safe_seats - occupied, 0)
         rate = clamp(occupied / safe_seats, 0.0, 1.0)
 
@@ -45,4 +51,3 @@ def calculate_congestion(people_count: int, total_seats: int) -> CongestionResul
         congestion_level=congestion_level_for_rate(rate),
         congestion_score=score,
     )
-

@@ -26,20 +26,24 @@ def create_upload_record(db: Session, facility: Facility, path: Path, original_f
     return upload
 
 
-def run_analysis_for_upload(db: Session, upload: Upload) -> Analysis:
-    facility = db.get(Facility, upload.facility_id)
-    if not facility:
-        raise ValueError("Facility not found for upload")
-
+def analyze_image_for_facility(facility: Facility, image_path: Path, annotate: bool = True) -> tuple:
     detector = get_detector()
-    detection = detector.detect(Path(upload.file_path))
-    congestion = calculate_congestion(detection.people_count, facility.total_seats)
+    detection = detector.detect(image_path)
+    congestion = calculate_congestion(
+        detection.people_count,
+        facility.total_seats,
+        facility.seat_usage_factor,
+    )
 
     annotated_path = None
-    if detection.boxes:
+    if annotate and detection.boxes:
         annotated_path = get_settings().storage_dir / "annotated" / f"{uuid4().hex}.jpg"
-        annotate_image(Path(upload.file_path), detection.boxes, annotated_path)
+        annotate_image(image_path, detection.boxes, annotated_path)
 
+    return detection, congestion, annotated_path
+
+
+def create_analysis_record(db: Session, facility: Facility, upload: Upload, congestion, annotated_path: Path | None = None) -> Analysis:
     analysis = Analysis(
         facility_id=facility.id,
         upload_id=upload.id,
@@ -69,6 +73,15 @@ def run_analysis_for_upload(db: Session, upload: Upload) -> Analysis:
     db.commit()
     db.refresh(analysis)
     return analysis
+
+
+def run_analysis_for_upload(db: Session, upload: Upload) -> Analysis:
+    facility = db.get(Facility, upload.facility_id)
+    if not facility:
+        raise ValueError("Facility not found for upload")
+
+    _, congestion, annotated_path = analyze_image_for_facility(facility, Path(upload.file_path), annotate=True)
+    return create_analysis_record(db, facility, upload, congestion, annotated_path)
 
 
 def analysis_to_dict(analysis: Analysis) -> dict:
@@ -103,4 +116,3 @@ def list_history(db: Session, facility_id: int, limit: int = 100) -> list[Occupa
             .limit(limit)
         ).all()
     )
-

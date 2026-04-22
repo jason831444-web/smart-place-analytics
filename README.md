@@ -46,6 +46,7 @@ Add portfolio screenshots here after running locally:
 
 - Home dashboard
 - Facility detail with annotated detection preview
+- Facility live monitoring page
 - Admin analytics dashboard
 - Facility management page
 
@@ -111,11 +112,16 @@ Backend:
 - `STORAGE_DIR`: local storage directory
 - `CV_BACKEND`: `mock` or `yolo`
 - `YOLO_MODEL`: YOLO weights name/path when `CV_BACKEND=yolo`
+- `YOLO_CONFIDENCE_THRESHOLD`: minimum person-detection confidence, default `0.25`
+- `YOLO_DEVICE`: optional Ultralytics device string such as `cpu`, `mps`, or `0`
+- `YOLO_FALLBACK_TO_MOCK`: when true, failed YOLO initialization falls back to the deterministic mock detector
+- `LIVE_PERSIST_INTERVAL_SECONDS`: minimum seconds between saved live samples for a facility, default `60`
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: demo admin credentials
 
 Frontend:
 
 - `NEXT_PUBLIC_API_BASE_URL`: API root, typically `http://localhost:8000/api`
+- `INTERNAL_API_BASE_URL`: server-side API root used by Next.js inside Docker, typically `http://backend:8000/api`
 
 ## Database Migrations
 
@@ -147,7 +153,56 @@ alembic revision --autogenerate -m "describe change"
 9. The backend stores both an `analyses` row and an `occupancy_logs` row.
 10. If detections include boxes, an annotated image is generated for display.
 
-The default detector is a deterministic mock so the project runs immediately without downloading model weights. To try YOLO locally, install `backend/requirements-ml.txt`, set `CV_BACKEND=yolo`, and restart the API. The YOLO implementation filters detections to the `person` class and can be replaced without changing route code.
+The default detector is a deterministic mock so the project runs immediately without downloading model weights. The mock count is deterministic: it opens the image to read width and height, adds those dimensions to the byte sum of the stored filename, calculates `seed % 9`, then clamps the result to 1-8 people. Its boxes are synthetic layout boxes spread across the image, not real detections.
+
+The real detector path uses Ultralytics YOLO and filters detections to the `person` class. The detector is selected through `CV_BACKEND`, cached for reuse, and can fall back to mock if model loading fails.
+
+Enable YOLO without Docker:
+
+```bash
+cd backend
+pip install -r requirements-ml.txt
+CV_BACKEND=yolo YOLO_MODEL=yolov8n.pt uvicorn app.main:app --reload
+```
+
+Enable YOLO with Docker:
+
+```bash
+BACKEND_REQUIREMENTS_FILE=requirements-ml.txt CV_BACKEND=yolo YOLO_MODEL=yolov8n.pt docker compose up --build
+```
+
+Keep `YOLO_FALLBACK_TO_MOCK=true` for demos where model downloads or hardware acceleration may be unavailable. Set it to `false` when you want startup/analysis to fail loudly if YOLO cannot initialize.
+
+The Occupancy Trend chart consumes `/api/facilities/{facility_id}/history`, sorts records oldest-first, and aggregates records into 5-minute, hourly, or daily buckets based on the visible time range. This keeps rapid live/manual test uploads from making the trend look like a misleading second-by-second sawtooth while preserving raw recent events in the table below.
+
+## Live Monitoring Mode
+
+The first live monitoring implementation is browser-camera driven and available at:
+
+- `/facilities/{facility_id}/live`
+
+The route is facility-scoped because congestion math depends on the facility capacity. From a facility detail page, use **Open live monitor** to launch it.
+
+How it works:
+
+1. The browser asks for camera access with `getUserMedia`.
+2. The live page shows a video preview.
+3. Every 3 seconds, the frontend captures the current video frame into an offscreen canvas.
+4. The frame is encoded as JPEG and sent to `POST /api/live/analyze`.
+5. The backend saves transient frames only long enough to run the configured detector.
+6. The same detector and congestion logic used by uploads returns people count, occupied seats, available seats, occupancy rate, congestion level, and congestion score.
+7. The frontend prevents overlapping requests, so a slow detector cannot create a request storm.
+
+Persistence strategy:
+
+- Live mode does **not** save every frame.
+- The UI sends frames every 3 seconds for near-real-time estimates.
+- If persistence is enabled, the backend saves at most one live sample per facility every `LIVE_PERSIST_INTERVAL_SECONDS`.
+- Default save interval is 60 seconds.
+- Persisted live samples reuse the existing `uploads`, `analyses`, and `occupancy_logs` tables, so admin analytics and facility history continue to work.
+- Non-persisted frames are deleted after analysis.
+
+This MVP intentionally uses polling-style frame snapshots instead of WebSockets or a server-side stream worker. The service layer is structured so later work can add RTSP/CCTV ingestion, background polling, WebSocket/SSE status pushes, or per-camera schedules without replacing the upload pipeline.
 
 ## API Highlights
 
@@ -160,6 +215,7 @@ Public/user:
 - `POST /api/uploads`
 - `POST /api/uploads/analyze`
 - `POST /api/analyze`
+- `POST /api/live/analyze`
 - `GET /api/analyses/{analysis_id}`
 
 Admin:
@@ -191,7 +247,7 @@ npm run build
 ## Current Limitations
 
 - Seat-level occupancy is estimated from people detection and total capacity; no dedicated seat detector/classifier is included yet.
-- Live camera ingestion is intentionally structured for future work but not implemented as a streaming service.
+- Live monitoring uses browser frame snapshots over HTTP; server-side RTSP/CCTV ingestion is structured for future work but not implemented yet.
 - Local filesystem storage is used for MVP simplicity; cloud object storage can be added behind the storage service.
 - The mock detector is deterministic and useful for demos, but not real CV inference.
 - Admin auth is intentionally simple and should be extended with refresh tokens, user management, and stricter production security controls.
@@ -200,6 +256,7 @@ npm run build
 
 - Add a real seat detector/classifier and camera calibration per facility
 - Add live camera frame sampling with configurable schedules
+- Add RTSP/CCTV ingestion workers and WebSocket or SSE live updates
 - Add alert thresholds and notification channels
 - Add CSV export for facility analytics
 - Add object storage support for S3/GCS
@@ -214,4 +271,3 @@ npm run build
 - Built historical occupancy tracking, congestion scoring, peak-hour analytics, and busiest-facility ranking queries
 - Created JWT-protected admin workflows for facility management and operational monitoring
 - Added migration, seed, and test coverage to support reproducible local demos and continued development
-

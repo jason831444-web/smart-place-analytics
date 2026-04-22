@@ -11,6 +11,7 @@ type Draft = {
   location: string;
   description: string;
   total_seats: number;
+  seat_usage_factor: number;
   image_url: string;
 };
 
@@ -20,6 +21,7 @@ const emptyDraft: Draft = {
   location: "",
   description: "",
   total_seats: 0,
+  seat_usage_factor: 1.0,
   image_url: ""
 };
 
@@ -34,7 +36,9 @@ export function FacilityManager() {
   }
 
   useEffect(() => {
-    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load facilities"));
+    load().catch((err) =>
+      setError(err instanceof Error ? err.message : "Unable to load facilities")
+    );
   }, []);
 
   function edit(facility: Facility) {
@@ -45,15 +49,26 @@ export function FacilityManager() {
       location: facility.location,
       description: facility.description ?? "",
       total_seats: facility.total_seats,
+      seat_usage_factor: facility.seat_usage_factor ?? 1.0,
       image_url: facility.image_url ?? ""
     });
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    const payload = { ...draft, description: draft.description || null, image_url: draft.image_url || null };
-    if (editingId) await api.updateFacility(editingId, payload);
-    else await api.createFacility(payload);
+
+    const payload = {
+      ...draft,
+      description: draft.description || null,
+      image_url: draft.image_url || null
+    };
+
+    if (editingId) {
+      await api.updateFacility(editingId, payload);
+    } else {
+      await api.createFacility(payload);
+    }
+
     setDraft(emptyDraft);
     setEditingId(null);
     await load();
@@ -66,8 +81,14 @@ export function FacilityManager() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-      <form onSubmit={submit} className="rounded-lg border border-line bg-white p-5 shadow-soft">
-        <h1 className="text-2xl font-semibold text-ink">{editingId ? "Edit Facility" : "Create Facility"}</h1>
+      <form
+        onSubmit={submit}
+        className="rounded-lg border border-line bg-white p-5 shadow-soft"
+      >
+        <h1 className="text-2xl font-semibold text-ink">
+          {editingId ? "Edit Facility" : "Create Facility"}
+        </h1>
+
         <div className="mt-5 grid gap-4">
           {(["name", "type", "location", "image_url"] as const).map((field) => (
             <label key={field} className="block text-sm font-medium text-slate-700">
@@ -75,10 +96,16 @@ export function FacilityManager() {
               <input
                 className="focus-ring mt-2 w-full rounded-lg border border-line px-3 py-2"
                 value={draft[field]}
-                onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value }))}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    [field]: event.target.value
+                  }))
+                }
               />
             </label>
           ))}
+
           <label className="block text-sm font-medium text-slate-700">
             total seats
             <input
@@ -86,37 +113,107 @@ export function FacilityManager() {
               type="number"
               min={0}
               value={draft.total_seats}
-              onChange={(event) => setDraft((current) => ({ ...current, total_seats: Number(event.target.value) }))}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  total_seats: Number(event.target.value)
+                }))
+              }
             />
           </label>
+
+          <label className="block text-sm font-medium text-slate-700">
+            seat usage factor
+            <input
+              className="focus-ring mt-2 w-full rounded-lg border border-line px-3 py-2"
+              type="number"
+              min={0}
+              max={1.5}
+              step={0.05}
+              value={draft.seat_usage_factor}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  seat_usage_factor: Number(event.target.value)
+                }))
+              }
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              1.0 means people count maps directly to occupied seats. Lower values
+              are useful for spaces with more standing traffic, such as cafes or lobbies.
+            </p>
+          </label>
+
           <label className="block text-sm font-medium text-slate-700">
             description
             <textarea
               className="focus-ring mt-2 min-h-28 w-full rounded-lg border border-line px-3 py-2"
               value={draft.description}
-              onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  description: event.target.value
+                }))
+              }
             />
           </label>
         </div>
+
         <div className="mt-5 flex gap-3">
-          <button className="focus-ring rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white">{editingId ? "Save changes" : "Create"}</button>
-          {editingId ? <button type="button" onClick={() => { setEditingId(null); setDraft(emptyDraft); }} className="focus-ring rounded-lg border border-line px-4 py-2 text-sm font-semibold">Cancel</button> : null}
+          <button className="focus-ring rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white">
+            {editingId ? "Save changes" : "Create"}
+          </button>
+          {editingId ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null);
+                setDraft(emptyDraft);
+              }}
+              className="focus-ring rounded-lg border border-line px-4 py-2 text-sm font-semibold"
+            >
+              Cancel
+            </button>
+          ) : null}
         </div>
-        {error ? <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+
+        {error ? (
+          <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+            {error}
+          </p>
+        ) : null}
       </form>
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <h2 className="text-xl font-semibold text-ink">Facilities</h2>
         <div className="mt-4 space-y-3">
           {facilities.map((facility) => (
-            <div key={facility.id} className="flex flex-col gap-3 rounded-lg bg-panel p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              key={facility.id}
+              className="flex flex-col gap-3 rounded-lg bg-panel p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div>
                 <p className="font-semibold text-ink">{facility.name}</p>
-                <p className="text-sm text-slate-500">{facility.type} · {facility.location} · {facility.total_seats} seats</p>
+                <p className="text-sm text-slate-500">
+                  {facility.type} · {facility.location} · {facility.total_seats} seats
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Seat usage factor: {facility.seat_usage_factor?.toFixed(2) ?? "1.00"}
+                </p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => edit(facility)} className="focus-ring rounded-lg border border-line bg-white px-3 py-2 text-sm font-semibold">Edit</button>
-                <button onClick={() => remove(facility.id)} className="focus-ring rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white">Delete</button>
+                <button
+                  onClick={() => edit(facility)}
+                  className="focus-ring rounded-lg border border-line bg-white px-3 py-2 text-sm font-semibold"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => remove(facility.id)}
+                  className="focus-ring rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           ))}
@@ -125,4 +222,3 @@ export function FacilityManager() {
     </div>
   );
 }
-

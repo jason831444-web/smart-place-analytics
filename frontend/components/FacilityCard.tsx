@@ -11,7 +11,14 @@ export function FacilityCard({ status }: { status: FacilityStatus }) {
   return (
     <Link href={`/facilities/${status.facility.id}`} className="group overflow-hidden rounded-lg border border-line bg-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="relative h-44 w-full bg-slate-200">
-        <Image src={image} alt={status.facility.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
+        <Image
+          src={image}
+          alt={status.facility.name}
+          fill
+          unoptimized
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 33vw"
+        />
       </div>
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">

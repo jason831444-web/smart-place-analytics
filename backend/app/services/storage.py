@@ -33,3 +33,13 @@ def save_upload_file(file: UploadFile, subdir: str = "uploads") -> Path:
         shutil.copyfileobj(file.file, buffer)
     return destination
 
+
+def save_bytes_file(content: bytes, content_type: str, subdir: str = "uploads") -> Path:
+    if content_type not in ALLOWED_IMAGE_TYPES:
+        raise ValueError("Only JPEG, PNG, and WebP images are supported")
+    suffix = ALLOWED_IMAGE_TYPES[content_type]
+    filename = f"{uuid4().hex}{suffix}"
+    destination = get_settings().storage_dir / subdir / filename
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(content)
+    return destination

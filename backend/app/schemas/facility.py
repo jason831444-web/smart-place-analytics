@@ -9,6 +9,7 @@ class FacilityBase(BaseModel):
     location: str = Field(min_length=2, max_length=255)
     description: str | None = None
     total_seats: int = Field(ge=0)
+    seat_usage_factor: float = Field(default=1.0, ge=0.0, le=1.5)
     image_url: str | None = None
 
 
@@ -22,6 +23,7 @@ class FacilityUpdate(BaseModel):
     location: str | None = Field(default=None, min_length=2, max_length=255)
     description: str | None = None
     total_seats: int | None = Field(default=None, ge=0)
+    seat_usage_factor: float | None = Field(default=None, ge=0.0, le=1.5)
     image_url: str | None = None
 
 
@@ -44,4 +46,3 @@ class FacilityStatus(BaseModel):
     congestion_score: float = 0
     latest_analysis_id: int | None = None
     latest_analysis_at: datetime | None = None
-

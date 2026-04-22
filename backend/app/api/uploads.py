@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_optional_user
+from app.cv.base import DetectorConfigurationError
 from app.db.session import get_db
 from app.models import User
 from app.schemas.analysis import AnalysisRead, UploadRead
@@ -37,7 +38,10 @@ def analyze_existing_upload(upload_id: int = Form(...), db: Session = Depends(ge
     upload = db.get(Upload, upload_id)
     if not upload:
         raise HTTPException(status_code=404, detail="Upload not found")
-    analysis = run_analysis_for_upload(db, upload)
+    try:
+        analysis = run_analysis_for_upload(db, upload)
+    except DetectorConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return AnalysisRead(**analysis_to_dict(analysis))
 
 
@@ -56,5 +60,8 @@ def upload_and_analyze(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     upload = create_upload_record(db, facility, path, file.filename or "upload", user)
-    analysis = run_analysis_for_upload(db, upload)
+    try:
+        analysis = run_analysis_for_upload(db, upload)
+    except DetectorConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return AnalysisRead(**analysis_to_dict(analysis))

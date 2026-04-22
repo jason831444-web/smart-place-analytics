@@ -1,6 +1,9 @@
 .DS_Store
+
 .env
+.env.local
 backend/.env
+frontend/.env
 frontend/.env.local
 
 *.pyc
@@ -14,8 +17,10 @@ htmlcov/
 
 backend/storage/uploads/*
 backend/storage/annotated/*
+backend/storage/live_frames/*
 !backend/storage/uploads/.gitkeep
 !backend/storage/annotated/.gitkeep
+!backend/storage/live_frames/.gitkeep
 
 frontend/.next/
 frontend/node_modules/

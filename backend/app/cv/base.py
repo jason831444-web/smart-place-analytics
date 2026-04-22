@@ -18,9 +18,13 @@ class DetectionResult:
     boxes: list[DetectionBox]
     backend: str
     model_name: str
+    fallback_reason: str | None = None
 
 
 class PersonDetector:
     def detect(self, image_path: Path) -> DetectionResult:
         raise NotImplementedError
 
+
+class DetectorConfigurationError(RuntimeError):
+    pass

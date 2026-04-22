@@ -7,6 +7,7 @@ export type Facility = {
   location: string;
   description?: string | null;
   total_seats: number;
+  seat_usage_factor: number;
   image_url?: string | null;
   created_at: string;
   updated_at: string;
@@ -50,6 +51,26 @@ export type Analysis = {
   annotated_image_url?: string | null;
 };
 
+export type LiveAnalysis = {
+  facility_id: number;
+  people_count: number;
+  occupied_seats: number;
+  available_seats: number;
+  occupancy_rate: number;
+  congestion_level: CongestionLevel;
+  congestion_score: number;
+  detector_backend: string;
+  detector_model: string;
+  persisted: boolean;
+  persistence_requested: boolean;
+  next_persist_after_seconds: number;
+  analysis_id?: number | null;
+  image_url?: string | null;
+  annotated_image_url?: string | null;
+  fallback_reason?: string | null;
+  created_at: string;
+};
+
 export type FacilityMetric = {
   facility_id: number;
   facility_name: string;
@@ -86,4 +107,3 @@ export type AnalyticsOverview = {
   peak_hours: PeakHourMetric[];
   recent_activity: RecentActivity[];
 };
-

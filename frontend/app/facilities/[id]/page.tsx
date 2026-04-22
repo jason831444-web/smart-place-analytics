@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CongestionBadge } from "@/components/Badge";
@@ -36,7 +37,14 @@ export default async function FacilityDetailPage({
     <div className="space-y-6">
       <section className="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
         <div className="relative min-h-80 overflow-hidden rounded-lg border border-line bg-slate-200 shadow-soft">
-          <Image src={image} alt={facility.name} fill className="object-cover" priority />
+          <Image
+            src={image}
+            alt={facility.name}
+            fill
+            unoptimized
+            className="object-cover"
+            priority
+          />
         </div>
         <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
           <div className="flex items-start justify-between gap-4">
@@ -48,7 +56,12 @@ export default async function FacilityDetailPage({
             <CongestionBadge level={status.congestion_level} />
           </div>
           <p className="mt-5 text-sm leading-6 text-slate-600">{facility.description}</p>
-          <p className="mt-5 text-xs text-slate-500">Latest analysis {shortDate(status.latest_analysis_at)}</p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-500">Latest analysis {shortDate(status.latest_analysis_at)}</p>
+            <Link href={`/facilities/${facility.id}/live`} className="focus-ring rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white">
+              Open live monitor
+            </Link>
+          </div>
         </div>
       </section>
 

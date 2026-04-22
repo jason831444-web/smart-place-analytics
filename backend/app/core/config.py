@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     public_base_url: str = "http://localhost:8000"
     cv_backend: str = "mock"
     yolo_model: str = "yolov8n.pt"
+    yolo_confidence_threshold: float = 0.25
+    yolo_device: str | None = None
+    yolo_fallback_to_mock: bool = True
+    live_persist_interval_seconds: int = 60
     seed_admin_email: str = "admin@example.com"
     seed_admin_password: str = "admin12345"
 
@@ -28,5 +32,5 @@ def get_settings() -> Settings:
     settings.storage_dir.mkdir(parents=True, exist_ok=True)
     (settings.storage_dir / "uploads").mkdir(parents=True, exist_ok=True)
     (settings.storage_dir / "annotated").mkdir(parents=True, exist_ok=True)
+    (settings.storage_dir / "live_frames").mkdir(parents=True, exist_ok=True)
     return settings
-

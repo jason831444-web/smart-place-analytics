@@ -8,6 +8,9 @@ from app.cv.base import DetectionBox, DetectionResult, PersonDetector
 class MockPersonDetector(PersonDetector):
     """Deterministic fallback detector so the app can run without ML weights."""
 
+    def __init__(self, fallback_reason: str | None = None):
+        self.fallback_reason = fallback_reason
+
     def detect(self, image_path: Path) -> DetectionResult:
         with Image.open(image_path) as image:
             width, height = image.size
@@ -28,5 +31,10 @@ class MockPersonDetector(PersonDetector):
                     confidence=0.55,
                 )
             )
-        return DetectionResult(people_count=count, boxes=boxes, backend="mock", model_name="deterministic-layout")
-
+        return DetectionResult(
+            people_count=count,
+            boxes=boxes,
+            backend="mock",
+            model_name="deterministic-layout",
+            fallback_reason=self.fallback_reason,
+        )

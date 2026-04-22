@@ -57,3 +57,22 @@ class HistoryPoint(BaseModel):
     congestion_score: float
     congestion_level: str
 
+
+class LiveAnalysisRead(BaseModel):
+    facility_id: int
+    people_count: int
+    occupied_seats: int
+    available_seats: int
+    occupancy_rate: float
+    congestion_level: str
+    congestion_score: float
+    detector_backend: str
+    detector_model: str
+    persisted: bool
+    persistence_requested: bool
+    next_persist_after_seconds: int
+    analysis_id: int | None = None
+    image_url: str | None = None
+    annotated_image_url: str | None = None
+    fallback_reason: str | None = None
+    created_at: datetime
