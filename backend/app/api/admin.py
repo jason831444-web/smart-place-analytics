@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.session import get_db
-from app.models import User
 from app.schemas.analytics import AnalyticsOverview, FacilityAnalytics
 from app.schemas.facility import FacilityCreate, FacilityRead, FacilityUpdate
 from app.services import analytics as analytics_service
@@ -18,7 +17,7 @@ def admin_facilities(db: Session = Depends(get_db)) -> list[FacilityRead]:
 
 
 @router.post("/facilities", response_model=FacilityRead, status_code=201)
-def admin_create_facility(payload: FacilityCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)) -> FacilityRead:
+def admin_create_facility(payload: FacilityCreate, db: Session = Depends(get_db)) -> FacilityRead:
     return create_facility(db, payload)
 
 
@@ -64,4 +63,3 @@ def facility_analytics(facility_id: int, db: Session = Depends(get_db)) -> Facil
         daily_trend=analytics_service.daily_trend(db, facility_id=facility_id),
         recent_activity=analytics_service.recent_activity(db, facility_id=facility_id),
     )
-

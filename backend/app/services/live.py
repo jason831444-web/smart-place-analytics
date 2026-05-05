@@ -52,7 +52,12 @@ def analyze_live_frame(
 ) -> LiveAnalysisRead:
     decision = live_persistence_decision(db, facility.id, persist_requested)
     subdir = "uploads" if decision.should_persist else "live_frames"
-    image_path = save_bytes_file(frame_content, content_type, subdir=subdir)
+    image_path = save_bytes_file(
+        frame_content,
+        content_type,
+        subdir=subdir,
+        max_bytes=get_settings().max_live_frame_bytes,
+    )
     analysis: Analysis | None = None
     upload: Upload | None = None
     remove_after_analysis = not decision.should_persist

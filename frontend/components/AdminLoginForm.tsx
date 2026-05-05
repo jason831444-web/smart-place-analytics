@@ -21,7 +21,7 @@ export function AdminLoginForm() {
       setToken(response.access_token);
       router.push("/admin");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Unable to sign in right now.");
     } finally {
       setLoading(false);
     }
@@ -47,4 +47,3 @@ export function AdminLoginForm() {
     </form>
   );
 }
-

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.cv.base import DetectorConfigurationError
 from app.db.session import get_db
+from app.models import User
 from app.schemas.analysis import LiveAnalysisRead
 from app.services.facilities import get_facility_or_none
 from app.services.live import analyze_live_frame
@@ -16,6 +18,7 @@ async def analyze_live(
     file: UploadFile = File(...),
     persist: bool = Form(True),
     db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
 ) -> LiveAnalysisRead:
     facility = get_facility_or_none(db, facility_id)
     if not facility:

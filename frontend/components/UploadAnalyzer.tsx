@@ -21,7 +21,7 @@ export function UploadAnalyzer({ facilityId }: { facilityId: number }) {
     try {
       setAnalysis(await api.uploadAnalyze(facilityId, file));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      setError(err instanceof Error ? err.message : "Unable to analyze this image.");
     } finally {
       setLoading(false);
     }
@@ -82,4 +82,3 @@ export function UploadAnalyzer({ facilityId }: { facilityId: number }) {
     </div>
   );
 }
-

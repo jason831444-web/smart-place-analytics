@@ -16,9 +16,7 @@ export function AdminDashboard() {
     api
       .adminOverview()
       .then(setData)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Unable to load dashboard")
-      );
+      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load dashboard."));
   }, []);
 
   if (error) {

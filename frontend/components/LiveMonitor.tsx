@@ -4,7 +4,7 @@ import { CameraIcon, StopCircleIcon } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 
 import { CongestionBadge } from "@/components/Badge";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { percent, score, shortDate } from "@/lib/format";
 import type { Facility, LiveAnalysis } from "@/types/api";
 
@@ -70,7 +70,10 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
     try {
       setResult(await api.liveAnalyze(facility.id, blob, persistLive));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Live analysis failed.");
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        stopCamera();
+      }
+      setError(err instanceof Error ? err.message : "Unable to analyze the live frame.");
     } finally {
       analyzingRef.current = false;
       setAnalyzing(false);
@@ -78,6 +81,7 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
   }
 
   async function startCamera() {
+    if (running || intervalRef.current) return;
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -151,6 +155,11 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
           </div>
         </div>
         {error ? <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p> : null}
+        {!error ? (
+          <p className="mt-4 text-sm text-slate-500">
+            Live monitoring requires an admin session because frames can be persisted into system analytics.
+          </p>
+        ) : null}
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">

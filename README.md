@@ -116,6 +116,8 @@ Backend:
 - `YOLO_DEVICE`: optional Ultralytics device string such as `cpu`, `mps`, or `0`
 - `YOLO_FALLBACK_TO_MOCK`: when true, failed YOLO initialization falls back to the deterministic mock detector
 - `LIVE_PERSIST_INTERVAL_SECONDS`: minimum seconds between saved live samples for a facility, default `60`
+- `MAX_UPLOAD_BYTES`: maximum size for uploaded analysis images, default `10485760` (10 MB)
+- `MAX_LIVE_FRAME_BYTES`: maximum size for browser live frames, default `5242880` (5 MB)
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: demo admin credentials
 
 Frontend:
@@ -171,6 +173,14 @@ Enable YOLO with Docker:
 BACKEND_REQUIREMENTS_FILE=requirements-ml.txt CV_BACKEND=yolo YOLO_MODEL=yolov8n.pt docker compose up --build
 ```
 
+The default Docker Compose setup stays lightweight and demo-friendly:
+
+```bash
+docker compose up --build
+```
+
+That path uses `requirements.txt`, starts with `CV_BACKEND=mock`, and leaves YOLO as an explicit opt-in.
+
 Keep `YOLO_FALLBACK_TO_MOCK=true` for demos where model downloads or hardware acceleration may be unavailable. Set it to `false` when you want startup/analysis to fail loudly if YOLO cannot initialize.
 
 The Occupancy Trend chart consumes `/api/facilities/{facility_id}/history`, sorts records oldest-first, and aggregates records into 5-minute, hourly, or daily buckets based on the visible time range. This keeps rapid live/manual test uploads from making the trend look like a misleading second-by-second sawtooth while preserving raw recent events in the table below.
@@ -192,6 +202,7 @@ How it works:
 5. The backend saves transient frames only long enough to run the configured detector.
 6. The same detector and congestion logic used by uploads returns people count, occupied seats, available seats, occupancy rate, congestion level, and congestion score.
 7. The frontend prevents overlapping requests, so a slow detector cannot create a request storm.
+8. Live analysis requires an authenticated admin session because persisted live samples write into the shared analytics history.
 
 Persistence strategy:
 
@@ -201,6 +212,14 @@ Persistence strategy:
 - Default save interval is 60 seconds.
 - Persisted live samples reuse the existing `uploads`, `analyses`, and `occupancy_logs` tables, so admin analytics and facility history continue to work.
 - Non-persisted frames are deleted after analysis.
+- Live frame uploads are size-limited and validated as real images before analysis.
+
+Security and operational notes:
+
+- Replace `SECRET_KEY` before any shared deployment. The checked-in defaults are for local development only.
+- Uploaded images and live frames accept only JPEG, PNG, and WebP payloads.
+- The backend validates image bytes with Pillow before saving them to storage.
+- Raw backend error payloads are intentionally not surfaced directly in the UI.
 
 This MVP intentionally uses polling-style frame snapshots instead of WebSockets or a server-side stream worker. The service layer is structured so later work can add RTSP/CCTV ingestion, background polling, WebSocket/SSE status pushes, or per-camera schedules without replacing the upload pipeline.
 
@@ -227,6 +246,8 @@ Admin:
 - `DELETE /api/admin/facilities/{facility_id}`
 - `GET /api/admin/analytics/overview`
 - `GET /api/admin/analytics/facilities/{facility_id}`
+
+`POST /api/live/analyze` is intended for admin-authenticated live monitoring sessions.
 
 ## Testing
 

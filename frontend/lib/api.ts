@@ -7,6 +7,27 @@ export const API_BASE =
     ? process.env.INTERNAL_API_BASE_URL
     : process.env.NEXT_PUBLIC_API_BASE_URL) ?? "http://localhost:8000/api";
 
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function safeErrorMessage(status: number, detail: unknown): string {
+  const fallback = typeof detail === "string" && detail.trim() ? detail.trim() : null;
+
+  if (status === 401) return "Please sign in to continue.";
+  if (status === 403) return "You do not have permission to perform this action.";
+  if (status === 404) return fallback ?? "The requested resource was not found.";
+  if (status === 413) return "The selected image is too large.";
+  if (status >= 500) return "The server could not complete this request. Please try again.";
+  return fallback ?? `Request failed with status ${status}.`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -18,8 +39,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(detail || `Request failed with ${response.status}`);
+    let detail: unknown = null;
+    try {
+      const payload = await response.json();
+      detail = payload?.detail ?? payload?.message ?? null;
+    } catch {
+      detail = await response.text().catch(() => null);
+    }
+    throw new ApiError(response.status, safeErrorMessage(response.status, detail));
   }
 
   if (response.status === 204) {

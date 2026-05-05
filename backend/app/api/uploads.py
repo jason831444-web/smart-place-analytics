@@ -13,6 +13,22 @@ from app.services.storage import public_url_for_path, save_upload_file
 router = APIRouter(tags=["uploads"])
 
 
+def require_facility(db: Session, facility_id: int):
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return facility
+
+
+def save_facility_upload(db: Session, facility_id: int, file: UploadFile, user: User | None):
+    facility = require_facility(db, facility_id)
+    try:
+        path = save_upload_file(file)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return create_upload_record(db, facility, path, file.filename or "upload", user)
+
+
 @router.post("/uploads", response_model=UploadRead)
 def upload_image(
     facility_id: int = Form(...),
@@ -20,14 +36,7 @@ def upload_image(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ) -> UploadRead:
-    facility = get_facility_or_none(db, facility_id)
-    if not facility:
-        raise HTTPException(status_code=404, detail="Facility not found")
-    try:
-        path = save_upload_file(file)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    upload = create_upload_record(db, facility, path, file.filename or "upload", user)
+    upload = save_facility_upload(db, facility_id, file, user)
     return UploadRead.model_validate(upload).model_copy(update={"url": public_url_for_path(upload.file_path)})
 
 
@@ -52,14 +61,7 @@ def upload_and_analyze(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ) -> AnalysisRead:
-    facility = get_facility_or_none(db, facility_id)
-    if not facility:
-        raise HTTPException(status_code=404, detail="Facility not found")
-    try:
-        path = save_upload_file(file)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    upload = create_upload_record(db, facility, path, file.filename or "upload", user)
+    upload = save_facility_upload(db, facility_id, file, user)
     try:
         analysis = run_analysis_for_upload(db, upload)
     except DetectorConfigurationError as exc:

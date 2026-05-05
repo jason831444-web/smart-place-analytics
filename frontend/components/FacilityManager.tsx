@@ -30,15 +30,14 @@ export function FacilityManager() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function load() {
     setFacilities(await api.adminFacilities());
   }
 
   useEffect(() => {
-    load().catch((err) =>
-      setError(err instanceof Error ? err.message : "Unable to load facilities")
-    );
+    load().catch((err) => setError(err instanceof Error ? err.message : "Unable to load facilities."));
   }, []);
 
   function edit(facility: Facility) {
@@ -56,6 +55,8 @@ export function FacilityManager() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    setError(null);
+    setSubmitting(true);
 
     const payload = {
       ...draft,
@@ -63,20 +64,31 @@ export function FacilityManager() {
       image_url: draft.image_url || null
     };
 
-    if (editingId) {
-      await api.updateFacility(editingId, payload);
-    } else {
-      await api.createFacility(payload);
-    }
+    try {
+      if (editingId) {
+        await api.updateFacility(editingId, payload);
+      } else {
+        await api.createFacility(payload);
+      }
 
-    setDraft(emptyDraft);
-    setEditingId(null);
-    await load();
+      setDraft(emptyDraft);
+      setEditingId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save facility.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function remove(id: number) {
-    await api.deleteFacility(id);
-    await load();
+    setError(null);
+    try {
+      await api.deleteFacility(id);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete facility.");
+    }
   }
 
   return (
@@ -160,8 +172,11 @@ export function FacilityManager() {
         </div>
 
         <div className="mt-5 flex gap-3">
-          <button className="focus-ring rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white">
-            {editingId ? "Save changes" : "Create"}
+          <button
+            disabled={submitting}
+            className="focus-ring rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {submitting ? "Saving..." : editingId ? "Save changes" : "Create"}
           </button>
           {editingId ? (
             <button
