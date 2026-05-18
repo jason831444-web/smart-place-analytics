@@ -9,7 +9,9 @@ from app.db.session import Base, get_db
 from app.main import app
 from app.models import Facility
 from app.services.operations import create_occupancy_log
+from app.services.rollups import compute_and_store_rollup
 from app.services.sensors import create_sensor_log
+from app.utils.time import utc_now
 
 
 def setup_app_db():
@@ -155,3 +157,138 @@ def test_empty_operations_endpoints_are_safe_and_invalid_facility_returns_404() 
     assert forecast_response.status_code == 200
     assert forecast_response.json()["method"] == "cold_start_baseline"
     assert missing_response.status_code == 404
+
+
+def test_rollup_computation_with_sensor_data_and_latest_rollup_endpoint() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="Signal Commons", type="Library", location="5F", total_seats=50)
+    db.add(facility)
+    db.flush()
+
+    base_time = utc_now() - timedelta(minutes=20)
+    for index, rate in enumerate([0.4, 0.72, 0.88]):
+        occupied = int(rate * facility.total_seats)
+        create_occupancy_log(
+            db,
+            facility_id=facility.id,
+            timestamp=base_time + timedelta(minutes=index * 10),
+            people_count=occupied,
+            occupied_seats=occupied,
+            available_seats=facility.total_seats - occupied,
+            occupancy_rate=rate,
+            congestion_score=round(rate * 100, 2),
+            congestion_level="High" if rate >= 0.71 else "Medium",
+            source_type="webcam",
+        )
+
+    for index, power_kw in enumerate([10.2, 12.4, 11.6]):
+        create_sensor_log(
+            db,
+            facility_id=facility.id,
+            timestamp=base_time + timedelta(minutes=index * 10),
+            temperature=22.5 + index,
+            humidity=44.0 + index,
+            power_kw=power_kw,
+            door_count=14 + index,
+            noise_level=54.0 + index,
+            source_type="simulator",
+        )
+
+    rollup = compute_and_store_rollup(db, facility.id, window_minutes=180, dedupe=False)
+    facility_id = facility.id
+    db.commit()
+    db.refresh(rollup)
+    db.close()
+
+    try:
+        client = TestClient(app)
+        latest_rollup_response = client.get(f"/api/facilities/{facility_id}/rollups/latest")
+        rollups_response = client.get(f"/api/facilities/{facility_id}/rollups")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert latest_rollup_response.status_code == 200
+    latest_rollup = latest_rollup_response.json()
+    assert latest_rollup["facility_id"] == facility_id
+    assert latest_rollup["window_minutes"] == 180
+    assert latest_rollup["peak_occupancy_rate"] == 0.88
+    assert latest_rollup["high_congestion_events"] == 2
+    assert latest_rollup["avg_power_kw"] == 11.4
+
+    assert rollups_response.status_code == 200
+    rollups = rollups_response.json()
+    assert len(rollups) == 1
+    assert rollups[0]["recommendation_count"] >= 0
+
+
+def test_rollup_computation_is_safe_when_sensor_data_is_missing() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="Quiet Nook", type="Study Room", location="1F", total_seats=16)
+    db.add(facility)
+    db.flush()
+
+    create_occupancy_log(
+        db,
+        facility_id=facility.id,
+        timestamp=utc_now() - timedelta(minutes=15),
+        people_count=5,
+        occupied_seats=5,
+        available_seats=11,
+        occupancy_rate=0.3125,
+        congestion_score=31.25,
+        congestion_level="Medium",
+        source_type="image_upload",
+    )
+
+    rollup = compute_and_store_rollup(db, facility.id, window_minutes=60, dedupe=False)
+    db.commit()
+    db.refresh(rollup)
+
+    assert rollup.avg_occupancy_rate == 0.3125
+    assert rollup.peak_occupancy_rate == 0.3125
+    assert rollup.avg_power_kw is None
+    assert rollup.peak_power_kw is None
+    assert rollup.avg_temperature is None
+    assert rollup.avg_noise_level is None
+
+    db.close()
+
+
+def test_job_status_endpoint_reports_recent_background_activity() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="Atrium", type="Cafe", location="Ground", total_seats=28)
+    db.add(facility)
+    db.flush()
+
+    create_sensor_log(
+        db,
+        facility_id=facility.id,
+        timestamp=utc_now(),
+        temperature=23.1,
+        humidity=48.0,
+        power_kw=9.4,
+        door_count=18,
+        noise_level=61.0,
+        source_type="simulator",
+    )
+    compute_and_store_rollup(db, facility.id, window_minutes=60, dedupe=False)
+    db.commit()
+    db.close()
+
+    try:
+        client = TestClient(app)
+        response = client.get("/api/operations/job-status")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_sensor_logs"] == 1
+    assert payload["total_rollups"] == 1
+    assert payload["facilities_with_recent_activity"] == 1
+    assert payload["latest_sensor_log_at"] is not None
+    assert payload["latest_rollup_at"] is not None
+    assert payload["generated_at"] is not None

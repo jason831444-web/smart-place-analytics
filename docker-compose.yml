@@ -80,5 +80,24 @@ services:
         condition: service_started
     command: python scripts/simulate_sensor_stream.py --interval-seconds 5 --iterations 0
 
+  operations-jobs:
+    build:
+      context: ./backend
+      args:
+        REQUIREMENTS_FILE: ${BACKEND_REQUIREMENTS_FILE:-requirements.txt}
+    profiles: ["operations"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://smart:smart@db:5432/smart_place
+      SECRET_KEY: local-development-secret
+      STORAGE_DIR: storage
+    volumes:
+      - ./backend/storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    command: python scripts/run_operations_jobs.py --interval-seconds 30 --iterations 0 --generate-sensors --compute-rollups
+
 volumes:
   postgres_data:

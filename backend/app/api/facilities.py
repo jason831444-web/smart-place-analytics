@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.db.session import get_db
+from app.models import User
 from app.schemas.analysis import HistoryPoint
 from app.schemas.facility import FacilityRead, FacilityStatus
 from app.schemas.operations import (
     FacilitySummaryRead,
+    FacilityOperationalRollupRead,
     ForecastRead,
     LatestStatusRead,
     OccupancyLogRead,
@@ -18,6 +21,7 @@ from app.services.facilities import facility_status, get_facility_or_none, list_
 from app.services.forecasting import forecast_response
 from app.services.operations import facility_summary, latest_status, list_occupancy_logs, serialize_occupancy_log
 from app.services.recommendations import build_recommendations
+from app.services.rollups import compute_and_store_rollup, latest_rollup, list_rollups, serialize_rollup
 from app.services.sensors import list_sensor_logs, sensor_summary
 
 router = APIRouter(prefix="/facilities", tags=["facilities"])
@@ -106,3 +110,36 @@ def recommendations_route(facility_id: int, db: Session = Depends(get_db)) -> li
     if not facility:
         raise HTTPException(status_code=404, detail="Facility not found")
     return build_recommendations(db, facility_id)
+
+
+@router.post("/{facility_id}/rollups/compute", response_model=FacilityOperationalRollupRead)
+def compute_rollup_route(
+    facility_id: int,
+    window_minutes: int = 60,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> FacilityOperationalRollupRead:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    rollup = compute_and_store_rollup(db, facility_id, window_minutes=max(15, min(window_minutes, 720)))
+    db.commit()
+    db.refresh(rollup)
+    return serialize_rollup(rollup)
+
+
+@router.get("/{facility_id}/rollups", response_model=list[FacilityOperationalRollupRead])
+def rollups_route(facility_id: int, limit: int = 100, db: Session = Depends(get_db)) -> list[FacilityOperationalRollupRead]:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return [serialize_rollup(item) for item in list_rollups(db, facility_id, limit=min(limit, 250))]
+
+
+@router.get("/{facility_id}/rollups/latest", response_model=FacilityOperationalRollupRead | None)
+def latest_rollup_route(facility_id: int, db: Session = Depends(get_db)) -> FacilityOperationalRollupRead | None:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    rollup = latest_rollup(db, facility_id)
+    return serialize_rollup(rollup) if rollup else None

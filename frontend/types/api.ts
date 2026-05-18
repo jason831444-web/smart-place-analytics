@@ -140,6 +140,22 @@ export type SensorSummary = {
   samples: number;
 };
 
+export type FacilityOperationalRollup = {
+  id: number;
+  facility_id: number;
+  timestamp: string;
+  window_minutes: number;
+  avg_occupancy_rate: number;
+  peak_occupancy_rate: number;
+  high_congestion_events: number;
+  avg_power_kw?: number | null;
+  peak_power_kw?: number | null;
+  avg_temperature?: number | null;
+  avg_noise_level?: number | null;
+  recommendation_count: number;
+  created_at: string;
+};
+
 export type Forecast = {
   facility_id: number;
   window_minutes: number;
@@ -158,6 +174,15 @@ export type Recommendation = {
   message: string;
   evidence: string[];
   created_at: string;
+};
+
+export type JobStatus = {
+  latest_sensor_log_at?: string | null;
+  latest_rollup_at?: string | null;
+  total_sensor_logs: number;
+  total_rollups: number;
+  facilities_with_recent_activity: number;
+  generated_at: string;
 };
 
 export type FacilityMetric = {

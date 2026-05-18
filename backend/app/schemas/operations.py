@@ -83,6 +83,24 @@ class SensorSummaryRead(BaseModel):
     samples: int = 0
 
 
+class FacilityOperationalRollupRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    facility_id: int
+    timestamp: datetime
+    window_minutes: int
+    avg_occupancy_rate: float
+    peak_occupancy_rate: float
+    high_congestion_events: int
+    avg_power_kw: float | None = None
+    peak_power_kw: float | None = None
+    avg_temperature: float | None = None
+    avg_noise_level: float | None = None
+    recommendation_count: int
+    created_at: datetime
+
+
 class ForecastRead(BaseModel):
     facility_id: int
     window_minutes: int
@@ -101,3 +119,12 @@ class RecommendationRead(BaseModel):
     message: str
     evidence: list[str]
     created_at: datetime
+
+
+class JobStatusRead(BaseModel):
+    latest_sensor_log_at: datetime | None = None
+    latest_rollup_at: datetime | None = None
+    total_sensor_logs: int = 0
+    total_rollups: int = 0
+    facilities_with_recent_activity: int = 0
+    generated_at: datetime

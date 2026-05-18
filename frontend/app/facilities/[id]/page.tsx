@@ -11,7 +11,7 @@ import { SensorChart } from "@/components/SensorChart";
 import { UploadAnalyzer } from "@/components/UploadAnalyzer";
 import { api } from "@/lib/api";
 import { percent, score, shortDate } from "@/lib/format";
-import type { FacilityStatus, FacilitySummary, Forecast, LatestStatus } from "@/types/api";
+import type { FacilityOperationalRollup, FacilityStatus, FacilitySummary, Forecast, JobStatus, LatestStatus } from "@/types/api";
 
 export default async function FacilityDetailPage({
   params
@@ -25,7 +25,7 @@ export default async function FacilityDetailPage({
     notFound();
   }
 
-  const [facility, statusResponse, latestStatusResponse, history, summaryResponse, sensorLogs, sensorSummary, forecastResponse, recommendations] = await Promise.all([
+  const [facility, statusResponse, latestStatusResponse, history, summaryResponse, sensorLogs, sensorSummary, latestRollupResponse, jobStatusResponse, forecastResponse, recommendations] = await Promise.all([
     api.facility(id).catch(() => null),
     api.status(id).catch(() => null),
     api.latestStatus(id).catch(() => null),
@@ -33,6 +33,8 @@ export default async function FacilityDetailPage({
     api.facilitySummary(id).catch(() => null),
     api.sensorLogs(id).catch(() => []),
     api.sensorSummary(id).catch(() => null),
+    api.latestRollup(id).catch(() => null),
+    api.jobStatus().catch(() => null),
     api.forecast(id).catch(() => null),
     api.recommendations(id).catch(() => [])
   ]);
@@ -85,6 +87,8 @@ export default async function FacilityDetailPage({
     };
 
   const forecast: Forecast | null = forecastResponse;
+  const latestRollup: FacilityOperationalRollup | null = latestRollupResponse;
+  const jobStatus: JobStatus | null = jobStatusResponse;
 
   const image =
     facility.image_url ??
@@ -149,7 +153,7 @@ export default async function FacilityDetailPage({
         )}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+      <section className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -175,6 +179,23 @@ export default async function FacilityDetailPage({
             <p>Sensor stream status: {sensorSummary?.samples ? `Active · ${sensorSummary.samples} samples` : "No sensor telemetry yet"}</p>
             <p>Live monitoring route: <Link href={`/facilities/${facility.id}/live`} className="font-semibold text-mint">/facilities/{facility.id}/live</Link></p>
             <p>Current congestion level: {latestStatus.congestion_level}</p>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
+          <h2 className="text-lg font-semibold text-ink">Operations Pipeline</h2>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <p>Latest sensor update: {shortDate(jobStatus?.latest_sensor_log_at ?? null)}</p>
+            <p>Latest rollup: {shortDate(latestRollup?.timestamp ?? jobStatus?.latest_rollup_at ?? null)}</p>
+            <p>
+              Rollup window: {latestRollup ? `${latestRollup.window_minutes} minutes` : "No rollup computed yet"}
+            </p>
+            <p>
+              Recent activity: {jobStatus ? `${jobStatus.facilities_with_recent_activity} facilities · ${jobStatus.total_rollups} rollups stored` : "Job status unavailable"}
+            </p>
+            <p>
+              Local runner: <code className="rounded bg-panel px-1.5 py-0.5 text-xs text-ink">python scripts/run_operations_jobs.py --interval-seconds 30</code>
+            </p>
           </div>
         </div>
       </section>

@@ -25,3 +25,4 @@ class Facility(Base):
     analyses = relationship("Analysis", back_populates="facility", cascade="all, delete-orphan")
     occupancy_logs = relationship("OccupancyLog", back_populates="facility", cascade="all, delete-orphan")
     sensor_logs = relationship("SensorLog", back_populates="facility", cascade="all, delete-orphan")
+    operational_rollups = relationship("FacilityOperationalRollup", back_populates="facility", cascade="all, delete-orphan")

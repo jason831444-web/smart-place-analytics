@@ -1,26 +1,13 @@
 import argparse
-import random
 import time
-from datetime import datetime
 
 from sqlalchemy import select
 
 from app.db.session import SessionLocal
 from app.models import Facility
 from app.services.operations import latest_status
-from app.services.sensors import create_sensor_log
-
-
-def simulated_payload(facility: Facility, occupancy_rate: float) -> dict:
-    occupancy_scale = max(0.0, min(occupancy_rate, 1.0))
-    base_temp = 21.5 + random.uniform(-1.2, 1.8)
-    return {
-        "temperature": round(base_temp + occupancy_scale * 2.4, 2),
-        "humidity": round(40 + occupancy_scale * 10 + random.uniform(-4, 4), 2),
-        "power_kw": round(6 + occupancy_scale * 8 + random.uniform(-1.2, 1.2), 2),
-        "door_count": max(0, int((facility.total_seats * 0.15) * occupancy_scale + random.randint(0, 6))),
-        "noise_level": round(42 + occupancy_scale * 24 + random.uniform(-3, 5), 2),
-    }
+from app.services.sensors import create_sensor_log, simulated_sensor_payload
+from app.utils.time import utc_now
 
 
 def run(interval_seconds: int, iterations: int | None) -> None:
@@ -35,7 +22,7 @@ def run(interval_seconds: int, iterations: int | None) -> None:
                 create_sensor_log(
                     db,
                     facility_id=facility.id,
-                    timestamp=datetime.utcnow(),
+                    timestamp=utc_now(),
                     source_type="simulator",
                     **payload,
                 )

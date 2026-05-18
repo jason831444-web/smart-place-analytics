@@ -29,14 +29,16 @@ Browser / Next.js UI
     -> CV analysis service (mock or YOLO)
     -> occupancy time-series service
     -> sensor telemetry service
+    -> operational rollup service
     -> forecasting service
     -> recommendation engine
     -> PostgreSQL
     -> local media storage
 
-Optional simulator:
-  sensor simulator script
+Optional background jobs:
+  sensor simulator script / operations job runner
     -> SensorLog ingestion
+    -> FacilityOperationalRollup generation
     -> PostgreSQL
 ```
 
@@ -147,6 +149,22 @@ This allows both persisted upload analyses and transient live webcam analyses to
 - `source_type`
 - `created_at`
 
+#### `facility_operational_rollups`
+
+- `id`
+- `facility_id`
+- `timestamp`
+- `window_minutes`
+- `avg_occupancy_rate`
+- `peak_occupancy_rate`
+- `high_congestion_events`
+- `avg_power_kw` nullable
+- `peak_power_kw` nullable
+- `avg_temperature` nullable
+- `avg_noise_level` nullable
+- `recommendation_count`
+- `created_at`
+
 ## Local Setup With Docker
 
 Prerequisites:
@@ -174,6 +192,12 @@ Run the optional synthetic sensor simulator service:
 
 ```bash
 docker compose --profile simulator up --build
+```
+
+Run the optional operations job runner service:
+
+```bash
+docker compose --profile operations up --build
 ```
 
 ## Local Setup Without Docker
@@ -214,6 +238,13 @@ Optional sensor simulator:
 ```bash
 cd backend
 python scripts/simulate_sensor_stream.py --interval-seconds 5 --iterations 0
+```
+
+Optional operations job runner:
+
+```bash
+cd backend
+python scripts/run_operations_jobs.py --interval-seconds 30 --iterations 0 --generate-sensors --compute-rollups
 ```
 
 Enable YOLO locally:
@@ -328,6 +359,56 @@ The simulator is implemented as:
 
 This keeps the architecture ready for a future MQTT broker or stream consumer while remaining easy to run locally today.
 
+## Operational Rollups
+
+Rollups live in:
+
+- `backend/app/services/rollups.py`
+
+The rollup layer computes periodic facility summaries over a configurable time window, with a default of 60 minutes.
+
+Each rollup stores:
+
+- average occupancy rate
+- peak occupancy rate
+- number of high congestion events
+- average and peak power draw when sensor data exists
+- average temperature and noise level when sensor data exists
+- recommendation count at rollup time
+
+Rollups are safe when sensor data is missing. Those sensor-derived fields remain nullable rather than failing the computation.
+
+To avoid excessive duplication in local demo mode, rollups deduplicate within a short time window when repeated with the same `window_minutes` value.
+
+## Background Jobs
+
+The platform now includes a lightweight background operations pipeline for local demos and interview walkthroughs.
+
+Job runner:
+
+- `backend/scripts/run_operations_jobs.py`
+
+Supported behaviors:
+
+- generate synthetic sensor logs for facilities
+- compute facility operational rollups
+- target one facility or all facilities
+- run once, a fixed number of iterations, or forever
+
+Example commands:
+
+```bash
+cd backend
+python scripts/run_operations_jobs.py --interval-seconds 30 --iterations 10 --generate-sensors --compute-rollups
+```
+
+```bash
+cd backend
+python scripts/run_operations_jobs.py --facility-id 1 --interval-seconds 15 --iterations 0 --compute-rollups
+```
+
+The purpose is to demonstrate scheduled operational data pipelines in addition to request/response analytics.
+
 ## Forecasting
 
 Forecasting lives in:
@@ -374,6 +455,8 @@ Current rules cover:
 - `GET /api/facilities/{facility_id}/summary`
 - `GET /api/facilities/{facility_id}/sensor-logs`
 - `GET /api/facilities/{facility_id}/sensor-summary`
+- `GET /api/facilities/{facility_id}/rollups`
+- `GET /api/facilities/{facility_id}/rollups/latest`
 - `GET /api/facilities/{facility_id}/forecast?window_minutes=60`
 - `GET /api/facilities/{facility_id}/recommendations`
 - `POST /api/uploads`
@@ -393,6 +476,11 @@ Current rules cover:
 - `DELETE /api/admin/facilities/{facility_id}`
 - `GET /api/admin/analytics/overview`
 - `GET /api/admin/analytics/facilities/{facility_id}`
+- `POST /api/facilities/{facility_id}/rollups/compute`
+
+### Operations pipeline
+
+- `GET /api/operations/job-status`
 
 ## UI Overview
 
@@ -456,12 +544,14 @@ CI:
 - Error handling avoids surfacing raw backend internals in the UI.
 - The default Docker path remains lightweight with the mock detector.
 - YOLO remains opt-in through `requirements-ml.txt` and `CV_BACKEND=yolo`.
+- Background jobs use a simple loop-and-sleep runner rather than a distributed queue for the MVP.
 
 ## Current Limitations
 
 - Seat occupancy is still derived from detected people and facility capacity, not a true seat-level classifier.
 - Live monitoring is browser-webcam snapshot polling rather than RTSP/CCTV ingestion.
 - Sensor ingestion is currently a simulator script, not a full MQTT deployment.
+- Operational rollups are periodic database snapshots rather than materialized views or streaming aggregations.
 - Forecasting is baseline statistical logic, not a trained ML model.
 - Recommendation generation is rule-based and deterministic.
 - MQTT ingestion, ML forecasting, and end-to-end browser tests are planned next steps.
@@ -482,3 +572,4 @@ CI:
 - Designed a time-series analytics pipeline for facility occupancy and sensor data.
 - Implemented forecasting and recommendation APIs to predict near-term congestion and suggest operational actions.
 - Added live monitoring and production-minded testing workflows.
+- Added a lightweight background operations pipeline that periodically generates telemetry and computes facility rollups for time-series monitoring and operational decision support.

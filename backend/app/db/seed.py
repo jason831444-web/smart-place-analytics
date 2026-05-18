@@ -9,6 +9,7 @@ from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import Analysis, Facility, OccupancyLog, SensorLog, Upload, User
 from app.services.congestion import calculate_congestion
+from app.services.rollups import compute_and_store_rollup
 from app.utils.time import utc_now
 
 
@@ -117,6 +118,9 @@ def seed() -> None:
                                 created_at=timestamp,
                             )
                         )
+            if not facility.operational_rollups:
+                db.flush()
+                compute_and_store_rollup(db, facility.id, window_minutes=60, dedupe=False)
         db.commit()
     finally:
         db.close()
