@@ -29,7 +29,13 @@ This guide is designed for a short recruiter or interviewer walkthrough. The goa
    - explain rollup creation
    - explain `JobRun` audit trail and operational alerts
 
-5. If time allows, show optional MQTT:
+5. Run one scenario-driven data story:
+   - exam congestion
+   - energy waste
+   - telemetry outage
+   - healthy normal day
+
+6. If time allows, show optional MQTT:
    - publisher -> broker -> subscriber -> `SensorLog` persistence
    - refresh the facility page and point out sensor activity
 
@@ -101,6 +107,60 @@ What to point out:
 - `JobRun` audit rows
 - operations alerts and stale/healthy status
 
+## Run scenario-driven demo data
+
+### Exam week congestion
+
+```bash
+cd /Users/yoonjaeseong/Desktop/projects/smart_place_analytics/backend
+python scripts/run_demo_scenario.py --scenario exam_week_congestion --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+What to point out:
+
+- rising occupancy through the day
+- high congestion events
+- redirect or overflow recommendations
+- stronger activity in charts and Operations Pipeline context
+
+### Low occupancy energy waste
+
+```bash
+cd /Users/yoonjaeseong/Desktop/projects/smart_place_analytics/backend
+python scripts/run_demo_scenario.py --scenario low_occupancy_energy_waste --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+What to point out:
+
+- low occupancy but unusually high power draw
+- energy mismatch alert
+- recommendation to reduce HVAC or lighting load
+
+### Telemetry outage
+
+```bash
+cd /Users/yoonjaeseong/Desktop/projects/smart_place_analytics/backend
+python scripts/run_demo_scenario.py --scenario telemetry_outage --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+What to point out:
+
+- stale telemetry alert
+- dashboard still has occupancy history
+- operations health becomes an observability story rather than just a chart story
+
+### Normal day
+
+```bash
+cd /Users/yoonjaeseong/Desktop/projects/smart_place_analytics/backend
+python scripts/run_demo_scenario.py --scenario normal_day --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+What to point out:
+
+- healthy but active dashboard
+- useful baseline for before/after scenario screenshots
+
 ## Run MQTT demo
 
 ### Docker profile
@@ -153,6 +213,7 @@ What to point out:
 - Why mock-by-default CV is useful for local reliability
 - Why MQTT is optional rather than forced into the default startup path
 - Why rollups and alerts make the system feel operational instead of purely analytical
+- Why scenario-driven demo data tells a more believable operational story than random samples
 - How the project can evolve toward RTSP, cloud IoT, and stronger forecasting
 
 ## Common troubleshooting
@@ -170,5 +231,8 @@ What to point out:
 - facility dashboard overview
 - live monitoring page while analyzing frames
 - Operations Pipeline card with alert state
+- exam week congestion dashboard state
+- low occupancy energy waste dashboard state
+- telemetry outage alert state
 - MQTT publisher/subscriber terminal output
 - admin overview or facility management page

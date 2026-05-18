@@ -138,11 +138,45 @@ MQTT publisher
   -> existing rollups, alerts, and dashboard views
 ```
 
+### Scenario-driven demo path
+
+```text
+run_demo_scenario.py
+  -> correlated OccupancyLog + SensorLog generation
+  -> optional rollup computation
+  -> optional alert refresh
+  -> existing forecast, recommendation, and dashboard views
+```
+
 ## Forecasting and recommendations
 
 - Forecasting uses a simple baseline model: moving averages plus same-hour historical blending when available
 - Recommendations use current occupancy, forecast, and sensor context to generate operational actions
 - This keeps the platform explainable and extensible without pretending a heavyweight ML pipeline already exists
+
+## Demo scenarios
+
+The repository includes a scenario-based generator so the app can present realistic operational stories instead of only generic synthetic data.
+
+- `exam_week_congestion`
+  - occupancy rises through the afternoon
+  - door count and noise level rise with occupancy
+  - high congestion alerts appear
+  - recommendations suggest redirecting traffic or opening overflow space
+- `low_occupancy_energy_waste`
+  - occupancy remains low
+  - power draw stays unusually high
+  - energy mismatch alerts appear
+  - recommendations suggest reducing lighting or HVAC usage
+- `telemetry_outage`
+  - occupancy history exists
+  - recent sensor data is missing
+  - stale telemetry alerts appear
+  - the Operations Pipeline card becomes a stronger observability demo
+- `normal_day`
+  - realistic but healthy occupancy and sensor behavior
+  - charts look active and stable
+  - severe alerts are less likely
 
 ## Background jobs and rollups
 
@@ -263,6 +297,38 @@ Verify MQTT ingestion:
 - `GET /api/operations/job-status`
 - facility detail `Operations Pipeline` card
 
+### Scenario-driven demo data
+
+Exam-week congestion:
+
+```bash
+cd backend
+python scripts/run_demo_scenario.py --scenario exam_week_congestion --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+Low-occupancy energy waste:
+
+```bash
+cd backend
+python scripts/run_demo_scenario.py --scenario low_occupancy_energy_waste --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+Telemetry outage:
+
+```bash
+cd backend
+python scripts/run_demo_scenario.py --scenario telemetry_outage --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+Normal day:
+
+```bash
+cd backend
+python scripts/run_demo_scenario.py --scenario normal_day --facility-id 1 --clear-existing --compute-rollups --refresh-alerts
+```
+
+Use these scenarios to drive the dashboard, alerts, recommendations, forecast cards, and Operations Pipeline card without changing application logic.
+
 ## API overview
 
 High-level endpoint groups:
@@ -291,6 +357,13 @@ Add real assets later; do not fabricate them.
   Placeholder for forecast and recommendation UI cards.
 
 When you add them, reference them from this README and from `DEMO.md`.
+
+Suggested screenshot flow after running scenarios:
+
+- `exam_week_congestion` -> capture high congestion indicators plus overflow-style recommendations
+- `low_occupancy_energy_waste` -> capture energy mismatch alert and optimization recommendation
+- `telemetry_outage` -> capture stale telemetry alert in the Operations Pipeline section
+- `normal_day` -> capture a healthy, active dashboard state
 
 ## Current limitations
 

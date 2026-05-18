@@ -18,6 +18,7 @@ def normalize_occupancy_source_type(source_type: str | None) -> str:
         "camera": "webcam",
         "simulator": "simulator",
         "seed": "simulator",
+        "demo_scenario": "demo_scenario",
     }
     return aliases.get(normalized, "image_upload")
 
