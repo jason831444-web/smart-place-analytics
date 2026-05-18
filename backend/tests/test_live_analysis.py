@@ -98,6 +98,7 @@ def test_live_frame_can_run_without_persisting(monkeypatch, tmp_path: Path) -> N
     assert result.persisted is False
     assert result.people_count >= 1
     assert db.scalar(select(Analysis)) is None
+    assert db.scalar(select(OccupancyLog)) is not None
     assert list((tmp_path / "storage" / "live_frames").glob("*")) == []
     reset_settings()
 

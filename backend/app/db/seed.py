@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
-from app.models import Analysis, Facility, OccupancyLog, Upload, User
+from app.models import Analysis, Facility, OccupancyLog, SensorLog, Upload, User
 from app.services.congestion import calculate_congestion
 
 
@@ -87,6 +87,33 @@ def seed() -> None:
                                 occupancy_rate=analysis.occupancy_rate,
                                 congestion_score=analysis.congestion_score,
                                 congestion_level=analysis.congestion_level,
+                                confidence=0.72,
+                                source_type="seed",
+                                image_path=str(image_path),
+                                annotated_image_path=str(image_path),
+                                created_at=timestamp,
+                            )
+                        )
+            if not facility.sensor_logs:
+                for day in range(5, -1, -1):
+                    for hour, temperature, humidity, power_kw, door_count, noise_level in [
+                        (8, 21.5 + index, 41 + index, 8.2 + index, 12 + index, 48 + index * 2),
+                        (13, 23.4 + index, 46 + index, 12.8 + index * 1.4, 34 + index * 2, 58 + index * 2),
+                        (18, 22.1 + index, 44 + index, 10.4 + index, 24 + index * 2, 52 + index * 2),
+                    ]:
+                        timestamp = datetime.utcnow() - timedelta(days=day)
+                        timestamp = timestamp.replace(hour=hour, minute=10, second=0, microsecond=0)
+                        db.add(
+                            SensorLog(
+                                facility_id=facility.id,
+                                timestamp=timestamp,
+                                temperature=temperature,
+                                humidity=humidity,
+                                power_kw=power_kw,
+                                door_count=door_count,
+                                noise_level=noise_level,
+                                source_type="seed",
+                                created_at=timestamp,
                             )
                         )
         db.commit()
@@ -96,4 +123,3 @@ def seed() -> None:
 
 if __name__ == "__main__":
     seed()
-

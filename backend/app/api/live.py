@@ -17,6 +17,7 @@ async def analyze_live(
     facility_id: int = Form(...),
     file: UploadFile = File(...),
     persist: bool = Form(True),
+    source_type: str = Form("webcam"),
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> LiveAnalysisRead:
@@ -36,6 +37,7 @@ async def analyze_live(
             content_type=content_type,
             original_filename=file.filename or "live-frame.jpg",
             persist_requested=persist,
+            source_type=source_type,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

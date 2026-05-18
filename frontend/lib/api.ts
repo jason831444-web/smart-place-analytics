@@ -1,4 +1,18 @@
-import type { Analysis, AnalyticsOverview, Facility, FacilityStatus, HistoryPoint, LiveAnalysis } from "@/types/api";
+import type {
+  Analysis,
+  AnalyticsOverview,
+  Facility,
+  FacilityStatus,
+  FacilitySummary,
+  Forecast,
+  HistoryPoint,
+  LatestStatus,
+  LiveAnalysis,
+  OccupancyLog,
+  Recommendation,
+  SensorLog,
+  SensorSummary
+} from "@/types/api";
 
 const isServer = typeof window === "undefined";
 
@@ -75,6 +89,13 @@ export const api = {
   facility: (id: number) => request<Facility>(`/facilities/${id}`),
   status: (id: number) => request<FacilityStatus>(`/facilities/${id}/status`),
   history: (id: number) => request<HistoryPoint[]>(`/facilities/${id}/history?limit=120`),
+  occupancyLogs: (id: number) => request<OccupancyLog[]>(`/facilities/${id}/occupancy-logs?limit=240`),
+  latestStatus: (id: number) => request<LatestStatus>(`/facilities/${id}/latest-status`),
+  facilitySummary: (id: number) => request<FacilitySummary>(`/facilities/${id}/summary`),
+  sensorLogs: (id: number) => request<SensorLog[]>(`/facilities/${id}/sensor-logs?limit=240`),
+  sensorSummary: (id: number) => request<SensorSummary>(`/facilities/${id}/sensor-summary`),
+  forecast: (id: number, windowMinutes = 60) => request<Forecast>(`/facilities/${id}/forecast?window_minutes=${windowMinutes}`),
+  recommendations: (id: number) => request<Recommendation[]>(`/facilities/${id}/recommendations`),
   analysis: (id: number) => request<Analysis>(`/analyses/${id}`),
   uploadAnalyze: (facilityId: number, file: File) => {
     const form = new FormData();
@@ -90,6 +111,7 @@ export const api = {
     const form = new FormData();
     form.append("facility_id", String(facilityId));
     form.append("persist", String(persist));
+    form.append("source_type", "webcam");
     form.append("file", file, `live-frame-${Date.now()}.jpg`);
     return request<LiveAnalysis>("/live/analyze", {
       method: "POST",

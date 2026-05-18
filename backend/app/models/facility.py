@@ -23,3 +23,4 @@ class Facility(Base):
     uploads = relationship("Upload", back_populates="facility", cascade="all, delete-orphan")
     analyses = relationship("Analysis", back_populates="facility", cascade="all, delete-orphan")
     occupancy_logs = relationship("OccupancyLog", back_populates="facility", cascade="all, delete-orphan")
+    sensor_logs = relationship("SensorLog", back_populates="facility", cascade="all, delete-orphan")

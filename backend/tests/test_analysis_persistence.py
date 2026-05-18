@@ -40,6 +40,8 @@ def test_run_analysis_persists_analysis_and_occupancy_log(monkeypatch, tmp_path:
     assert analysis.annotated_image_path is not None
     assert log is not None
     assert log.people_count == analysis.people_count
+    assert log.source_type == "image_upload"
+    assert log.image_path == str(image_path)
 
     get_settings.cache_clear()
     get_detector.cache_clear()

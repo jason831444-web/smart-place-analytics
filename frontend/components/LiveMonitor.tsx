@@ -1,12 +1,14 @@
 "use client";
 
 import { CameraIcon, StopCircleIcon } from "@heroicons/react/24/outline";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CongestionBadge } from "@/components/Badge";
+import { ForecastCard } from "@/components/ForecastCard";
+import { RecommendationList } from "@/components/RecommendationList";
 import { ApiError, api } from "@/lib/api";
 import { percent, score, shortDate } from "@/lib/format";
-import type { Facility, LiveAnalysis } from "@/types/api";
+import type { Facility, Forecast, LiveAnalysis, Recommendation } from "@/types/api";
 
 const FRAME_INTERVAL_MS = 3000;
 
@@ -30,8 +32,19 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [persistLive, setPersistLive] = useState(true);
   const [result, setResult] = useState<LiveAnalysis | null>(null);
+  const [forecast, setForecast] = useState<Forecast | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [framePreview, setFramePreview] = useState<string | null>(null);
+
+  const refreshOperationalInsights = useCallback(async () => {
+    const [nextForecast, nextRecommendations] = await Promise.all([
+      api.forecast(facility.id).catch(() => null),
+      api.recommendations(facility.id).catch(() => [])
+    ]);
+    setForecast(nextForecast);
+    setRecommendations(nextRecommendations);
+  }, [facility.id]);
 
   async function analyzeFrame() {
     if (analyzingRef.current || !videoRef.current || !canvasRef.current) return;
@@ -69,6 +82,7 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
 
     try {
       setResult(await api.liveAnalyze(facility.id, blob, persistLive));
+      await refreshOperationalInsights();
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         stopCamera();
@@ -115,12 +129,13 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
   }
 
   useEffect(() => {
+    void refreshOperationalInsights();
     return () => {
       if (intervalRef.current) window.clearInterval(intervalRef.current);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (framePreviewRef.current) URL.revokeObjectURL(framePreviewRef.current);
     };
-  }, []);
+  }, [refreshOperationalInsights]);
 
   return (
     <div className="space-y-6">
@@ -211,9 +226,18 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
         <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
           <h2 className="text-lg font-semibold text-ink">Last Submitted Frame</h2>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={framePreview} alt="Last submitted camera frame" className="mt-4 max-h-80 rounded-lg border border-line object-contain" />
+          <img
+            src={result?.annotated_image_url ?? framePreview}
+            alt="Last submitted camera frame"
+            className="mt-4 max-h-80 rounded-lg border border-line object-contain"
+          />
         </section>
       ) : null}
+
+      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        {forecast ? <ForecastCard forecast={forecast} /> : <div className="rounded-lg border border-line bg-white p-5 shadow-soft text-sm text-slate-500">Forecast unavailable.</div>}
+        <RecommendationList items={recommendations} />
+      </section>
     </div>
   );
 }

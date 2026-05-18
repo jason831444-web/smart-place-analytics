@@ -1,54 +1,151 @@
-# Smart Seat and Facility Congestion Analysis System
+# Smart Place Analytics
 
-An end-to-end full-stack application for estimating facility congestion from uploaded images, storing analysis history, and presenting operational analytics for spaces such as libraries, classrooms, study rooms, and cafes.
+Smart Place Analytics is a real-time facility operations analytics platform for libraries, lounges, study rooms, cafes, and shared spaces. It combines computer-vision occupancy analysis, time-series telemetry, near-term forecasting, and rule-based operational recommendations in a single full-stack system built for local demos and portfolio presentation.
 
-This repository is built as a strong MVP/portfolio foundation: FastAPI backend, PostgreSQL persistence, Alembic migrations, a modular computer-vision layer, JWT admin auth, a Next.js dashboard, Docker Compose, seed data, and tests for the core analytics logic.
+The project keeps the original upload-and-analyze workflow, then extends it toward a more industrial operations story:
 
-## Architecture
+- real-time webcam-driven occupancy ingestion
+- persistent occupancy and sensor time-series logs
+- facility summary and historical analytics
+- near-term occupancy forecasting
+- recommendation generation for congestion and energy efficiency
+- production-minded local development with Docker, migrations, seed data, tests, and CI
 
-```mermaid
-flowchart LR
-  UI["Next.js dashboard"] --> API["FastAPI REST API"]
-  API --> DB[("PostgreSQL")]
-  API --> Storage["Local file storage"]
-  API --> CV["Person detector interface"]
-  CV --> Mock["Mock detector fallback"]
-  CV --> YOLO["Optional YOLO detector"]
-  API --> Analytics["Aggregation services"]
+## Platform Positioning
+
+Smart Place Analytics is now aimed at the same class of problems you would see in an industrial facility operations product:
+
+- real-time data ingestion from computer vision and synthetic telemetry
+- time-series analytics for occupancy and environmental signals
+- operational dashboards for utilization, congestion, and energy
+- forecasting APIs for short-horizon planning
+- recommendation APIs that turn analytics into action
+
+## Architecture Summary
+
+```text
+Browser / Next.js UI
+  -> FastAPI REST API
+    -> CV analysis service (mock or YOLO)
+    -> occupancy time-series service
+    -> sensor telemetry service
+    -> forecasting service
+    -> recommendation engine
+    -> PostgreSQL
+    -> local media storage
+
+Optional simulator:
+  sensor simulator script
+    -> SensorLog ingestion
+    -> PostgreSQL
 ```
+
+## Core Features
+
+- Public facility list with current status cards
+- Facility detail page with:
+  - current occupancy metrics
+  - historical occupancy chart
+  - image upload analysis
+  - sensor and energy chart
+  - forecast card
+  - recommendation feed
+  - alert-style high congestion indicators
+- Live monitoring page with webcam capture every 3 seconds
+- Admin dashboard and facility management
+- Time-series occupancy logging for upload-driven and live analysis flows
+- Synthetic sensor telemetry simulator for industrial IoT-style demos
+- Forecasting endpoint using moving-average and same-hour historical baselines
+- Recommendation engine for congestion, overflow, staffing, and energy actions
 
 ## Tech Stack
 
 - Frontend: Next.js App Router, TypeScript, Tailwind CSS, Recharts
 - Backend: FastAPI, Pydantic, SQLAlchemy 2, Alembic
 - Database: PostgreSQL
-- Auth: JWT bearer tokens with bcrypt password hashing
-- Storage: local upload and annotated-image directories
-- CV: swappable detector interface with deterministic mock fallback and optional YOLO support
-- DevOps: Docker Compose for Postgres, backend, and frontend
+- Auth: JWT bearer tokens
+- CV: swappable detector interface with deterministic mock fallback and YOLO-ready option
+- Storage: local upload and annotated image storage
+- Tooling: Docker Compose, pytest, GitHub Actions
 
-## Features
+## Current Architecture Audit
 
-- Public facility list with current people count, available seats, occupancy rate, and congestion badge
-- Facility detail page with metadata, image, current status, upload-and-analyze flow, annotated result preview, history chart, and recent logs
-- Admin login with seeded demo account
-- Admin dashboard with summary metrics, busiest facilities ranking, peak-hour chart, and recent system activity
-- Admin facility management for create, edit, and delete
-- Persistent uploads, analyses, and occupancy logs
-- Analytics endpoints for overview, facility history, peak hours, daily trend, and rankings
-- Defensive congestion calculation with clamping and zero-seat handling
-- Alembic migration and seed/demo data
-- Backend unit tests for congestion and analytics helpers
+Before this extension, the application already had:
 
-## Screenshots
+- facility metadata stored in `facilities`
+- uploaded images stored in `uploads`
+- analysis results stored in `analyses`
+- historical occupancy snapshots stored in `occupancy_logs`
+- public routes for facility list, detail, status, and history
+- admin routes for facility CRUD and analytics overview
+- a webcam-based live page that reused the CV pipeline
 
-Add portfolio screenshots here after running locally:
+The existing persistence path was:
 
-- Home dashboard
-- Facility detail with annotated detection preview
-- Facility live monitoring page
-- Admin analytics dashboard
-- Facility management page
+```text
+upload/live frame
+  -> detector
+  -> congestion calculation
+  -> analyses row
+  -> occupancy_logs row
+  -> facility detail/admin analytics
+```
+
+This upgrade keeps that flow and enriches it with:
+
+- richer occupancy log metadata
+- sensor telemetry ingestion
+- forecast generation
+- recommendation generation
+- expanded facility dashboards
+
+## Data Model
+
+### Existing
+
+- `users`
+- `facilities`
+- `uploads`
+- `analyses`
+- `occupancy_logs`
+- `alerts`
+
+### Added / Extended
+
+#### `occupancy_logs`
+
+The occupancy log model now captures richer time-series metadata:
+
+- `id`
+- `facility_id`
+- `analysis_id` nullable
+- `timestamp`
+- `people_count`
+- `occupied_seats`
+- `available_seats`
+- `occupancy_rate`
+- `congestion_score`
+- `congestion_level`
+- `confidence`
+- `source_type`
+- `image_path`
+- `annotated_image_path`
+- `created_at`
+
+This allows both persisted upload analyses and transient live webcam analyses to contribute time-series records.
+
+#### `sensor_logs`
+
+- `id`
+- `facility_id`
+- `timestamp`
+- `temperature`
+- `humidity`
+- `power_kw`
+- `door_count`
+- `noise_level`
+- `source_type`
+- `created_at`
 
 ## Local Setup With Docker
 
@@ -62,8 +159,6 @@ Run the full stack:
 docker compose up --build
 ```
 
-The backend container runs migrations and seeds demo data automatically.
-
 Open:
 
 - Frontend: http://localhost:3000
@@ -74,6 +169,12 @@ Demo admin account:
 
 - Email: `admin@example.com`
 - Password: `admin12345`
+
+Run the optional synthetic sensor simulator service:
+
+```bash
+docker compose --profile simulator up --build
+```
 
 ## Local Setup Without Docker
 
@@ -99,67 +200,14 @@ cp .env.example .env.local
 npm run dev
 ```
 
-For non-Docker local backend development, update `backend/.env` so `DATABASE_URL` points to your local PostgreSQL instance.
-
-## Environment Variables
-
-Backend:
-
-- `DATABASE_URL`: SQLAlchemy database URL
-- `SECRET_KEY`: JWT signing secret
-- `CORS_ORIGINS`: JSON list of allowed frontend origins
-- `PUBLIC_BASE_URL`: base URL used for generated media links
-- `STORAGE_DIR`: local storage directory
-- `CV_BACKEND`: `mock` or `yolo`
-- `YOLO_MODEL`: YOLO weights name/path when `CV_BACKEND=yolo`
-- `YOLO_CONFIDENCE_THRESHOLD`: minimum person-detection confidence, default `0.25`
-- `YOLO_DEVICE`: optional Ultralytics device string such as `cpu`, `mps`, or `0`
-- `YOLO_FALLBACK_TO_MOCK`: when true, failed YOLO initialization falls back to the deterministic mock detector
-- `LIVE_PERSIST_INTERVAL_SECONDS`: minimum seconds between saved live samples for a facility, default `60`
-- `MAX_UPLOAD_BYTES`: maximum size for uploaded analysis images, default `10485760` (10 MB)
-- `MAX_LIVE_FRAME_BYTES`: maximum size for browser live frames, default `5242880` (5 MB)
-- `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: demo admin credentials
-
-Frontend:
-
-- `NEXT_PUBLIC_API_BASE_URL`: API root, typically `http://localhost:8000/api`
-- `INTERNAL_API_BASE_URL`: server-side API root used by Next.js inside Docker, typically `http://backend:8000/api`
-
-## Database Migrations
-
-Run migrations from the backend directory:
+Optional sensor simulator:
 
 ```bash
-alembic upgrade head
+cd backend
+python scripts/simulate_sensor_stream.py --interval-seconds 5 --iterations 0
 ```
 
-Create a new migration after model changes:
-
-```bash
-alembic revision --autogenerate -m "describe change"
-```
-
-## How Analysis Works
-
-1. A user uploads an image for a facility.
-2. The backend saves an `uploads` record and the image file.
-3. The analysis service calls the configured `PersonDetector`.
-4. The detector returns people count and optional bounding boxes.
-5. Occupied seats are estimated as `min(people_count, total_seats)`.
-6. `available_seats = max(total_seats - occupied_seats, 0)`.
-7. `occupancy_rate = occupied_seats / total_seats`, with zero-seat facilities handled as 0.
-8. Congestion level is assigned as:
-   - Low: 0.00 to 0.30
-   - Medium: 0.31 to 0.70
-   - High: 0.71+
-9. The backend stores both an `analyses` row and an `occupancy_logs` row.
-10. If detections include boxes, an annotated image is generated for display.
-
-The default detector is a deterministic mock so the project runs immediately without downloading model weights. The mock count is deterministic: it opens the image to read width and height, adds those dimensions to the byte sum of the stored filename, calculates `seed % 9`, then clamps the result to 1-8 people. Its boxes are synthetic layout boxes spread across the image, not real detections.
-
-The real detector path uses Ultralytics YOLO and filters detections to the `person` class. The detector is selected through `CV_BACKEND`, cached for reuse, and can fall back to mock if model loading fails.
-
-Enable YOLO without Docker:
+Enable YOLO locally:
 
 ```bash
 cd backend
@@ -173,71 +221,153 @@ Enable YOLO with Docker:
 BACKEND_REQUIREMENTS_FILE=requirements-ml.txt CV_BACKEND=yolo YOLO_MODEL=yolov8n.pt docker compose up --build
 ```
 
-The default Docker Compose setup stays lightweight and demo-friendly:
+## Environment Variables
+
+Backend:
+
+- `DATABASE_URL`
+- `SECRET_KEY`
+- `CORS_ORIGINS`
+- `PUBLIC_BASE_URL`
+- `STORAGE_DIR`
+- `CV_BACKEND`
+- `YOLO_MODEL`
+- `YOLO_CONFIDENCE_THRESHOLD`
+- `YOLO_DEVICE`
+- `YOLO_FALLBACK_TO_MOCK`
+- `LIVE_PERSIST_INTERVAL_SECONDS`
+- `MAX_UPLOAD_BYTES`
+- `MAX_LIVE_FRAME_BYTES`
+- `SEED_ADMIN_EMAIL`
+- `SEED_ADMIN_PASSWORD`
+
+Frontend:
+
+- `NEXT_PUBLIC_API_BASE_URL`
+- `INTERNAL_API_BASE_URL`
+
+## Database Migrations
+
+Run migrations:
 
 ```bash
-docker compose up --build
+cd backend
+alembic upgrade head
 ```
 
-That path uses `requirements.txt`, starts with `CV_BACKEND=mock`, and leaves YOLO as an explicit opt-in.
+Create a new migration:
 
-Keep `YOLO_FALLBACK_TO_MOCK=true` for demos where model downloads or hardware acceleration may be unavailable. Set it to `false` when you want startup/analysis to fail loudly if YOLO cannot initialize.
+```bash
+cd backend
+alembic revision --autogenerate -m "describe change"
+```
 
-The Occupancy Trend chart consumes `/api/facilities/{facility_id}/history`, sorts records oldest-first, and aggregates records into 5-minute, hourly, or daily buckets based on the visible time range. This keeps rapid live/manual test uploads from making the trend look like a misleading second-by-second sawtooth while preserving raw recent events in the table below.
+## Real-Time Occupancy Ingestion
 
-## Live Monitoring Mode
+### Upload Analysis
 
-The first live monitoring implementation is browser-camera driven and available at:
+1. A user uploads an image for a facility.
+2. The backend validates and stores the image.
+3. The configured detector estimates people count.
+4. Congestion metrics are calculated from people count and capacity.
+5. The system stores:
+   - `uploads`
+   - `analyses`
+   - `occupancy_logs`
+
+### Live Monitoring
+
+The live page is available at:
 
 - `/facilities/{facility_id}/live`
 
-The route is facility-scoped because congestion math depends on the facility capacity. From a facility detail page, use **Open live monitor** to launch it.
-
 How it works:
 
-1. The browser asks for camera access with `getUserMedia`.
-2. The live page shows a video preview.
-3. Every 3 seconds, the frontend captures the current video frame into an offscreen canvas.
-4. The frame is encoded as JPEG and sent to `POST /api/live/analyze`.
-5. The backend saves transient frames only long enough to run the configured detector.
-6. The same detector and congestion logic used by uploads returns people count, occupied seats, available seats, occupancy rate, congestion level, and congestion score.
-7. The frontend prevents overlapping requests, so a slow detector cannot create a request storm.
-8. Live analysis requires an authenticated admin session because persisted live samples write into the shared analytics history.
+1. The browser requests webcam access with `getUserMedia`.
+2. The page captures a frame every 3 seconds.
+3. The frame is sent to `POST /api/live/analyze`.
+4. The backend reuses the same detector and congestion logic as uploads.
+5. Every live request produces a structured occupancy response.
+6. Occupancy logs are created for live samples.
+7. Full upload + analysis persistence still follows the existing throttled interval to avoid storing every frame as a heavy media artifact.
 
-Persistence strategy:
+This keeps the platform near-real-time without overwhelming the database or storage layer.
 
-- Live mode does **not** save every frame.
-- The UI sends frames every 3 seconds for near-real-time estimates.
-- If persistence is enabled, the backend saves at most one live sample per facility every `LIVE_PERSIST_INTERVAL_SECONDS`.
-- Default save interval is 60 seconds.
-- Persisted live samples reuse the existing `uploads`, `analyses`, and `occupancy_logs` tables, so admin analytics and facility history continue to work.
-- Non-persisted frames are deleted after analysis.
-- Live frame uploads are size-limited and validated as real images before analysis.
+## Sensor Simulation
 
-Security and operational notes:
+The first industrial telemetry step is a synthetic sensor stream rather than MQTT-first complexity.
 
-- Replace `SECRET_KEY` before any shared deployment. The checked-in defaults are for local development only.
-- Uploaded images and live frames accept only JPEG, PNG, and WebP payloads.
-- The backend validates image bytes with Pillow before saving them to storage.
-- Raw backend error payloads are intentionally not surfaced directly in the UI.
+The simulator writes `sensor_logs` for each facility with:
 
-This MVP intentionally uses polling-style frame snapshots instead of WebSockets or a server-side stream worker. The service layer is structured so later work can add RTSP/CCTV ingestion, background polling, WebSocket/SSE status pushes, or per-camera schedules without replacing the upload pipeline.
+- temperature
+- humidity
+- power draw in kW
+- door count
+- noise level
 
-## API Highlights
+The simulator is implemented as:
 
-Public/user:
+- `backend/scripts/simulate_sensor_stream.py`
+
+This keeps the architecture ready for a future MQTT broker or stream consumer while remaining easy to run locally today.
+
+## Forecasting
+
+Forecasting lives in:
+
+- `backend/app/services/forecasting.py`
+
+The baseline method is intentionally simple and replaceable:
+
+- moving average of recent occupancy samples
+- same-hour historical average when enough data exists
+- hybrid blending when both are available
+
+Response includes:
+
+- predicted occupancy rate
+- predicted congestion level
+- confidence
+- method
+- explanation
+
+## Recommendation Engine
+
+Recommendations live in:
+
+- `backend/app/services/recommendations.py`
+
+Current rules cover:
+
+- redirecting users when occupancy is already high
+- preparing overflow capacity when forecast occupancy is too high
+- reducing energy usage when power draw is high but occupancy is low
+- suggesting staffing or schedule review when high congestion repeats
+
+## API Summary
+
+### Public / user-facing
 
 - `GET /api/facilities`
 - `GET /api/facilities/{facility_id}`
 - `GET /api/facilities/{facility_id}/status`
 - `GET /api/facilities/{facility_id}/history`
+- `GET /api/facilities/{facility_id}/occupancy-logs`
+- `GET /api/facilities/{facility_id}/latest-status`
+- `GET /api/facilities/{facility_id}/summary`
+- `GET /api/facilities/{facility_id}/sensor-logs`
+- `GET /api/facilities/{facility_id}/sensor-summary`
+- `GET /api/facilities/{facility_id}/forecast?window_minutes=60`
+- `GET /api/facilities/{facility_id}/recommendations`
 - `POST /api/uploads`
 - `POST /api/uploads/analyze`
-- `POST /api/analyze`
-- `POST /api/live/analyze`
 - `GET /api/analyses/{analysis_id}`
 
-Admin:
+### Live
+
+- `POST /api/live/analyze`
+
+### Admin
 
 - `POST /api/auth/login`
 - `GET /api/admin/facilities`
@@ -247,7 +377,37 @@ Admin:
 - `GET /api/admin/analytics/overview`
 - `GET /api/admin/analytics/facilities/{facility_id}`
 
-`POST /api/live/analyze` is intended for admin-authenticated live monitoring sessions.
+## UI Overview
+
+The facility detail dashboard now includes:
+
+- live status card
+- occupancy history chart
+- sensor and energy chart
+- forecast card
+- recommendation feed
+- high congestion event visibility
+- system status indicator
+
+The live page includes:
+
+- camera preview
+- real-time occupancy metrics
+- last updated state
+- last submitted or annotated frame
+- forecast card
+- recommendations
+
+## Screenshots / GIF Placeholders
+
+Add media here after running locally:
+
+- facility overview dashboard
+- facility detail analytics dashboard
+- live monitoring page
+- admin overview
+- sensor telemetry chart
+- recommendation cards
 
 ## Testing
 
@@ -262,33 +422,45 @@ Frontend validation:
 
 ```bash
 cd frontend
+npm run lint
 npm run build
 ```
 
+CI:
+
+- `.github/workflows/ci.yml`
+- runs backend tests
+- builds the frontend
+
+## Security and Reliability Notes
+
+- Uploaded images and live frames are validated as real JPEG, PNG, or WebP images.
+- Live analysis requires an admin token.
+- Error handling avoids surfacing raw backend internals in the UI.
+- The default Docker path remains lightweight with the mock detector.
+- YOLO remains opt-in through `requirements-ml.txt` and `CV_BACKEND=yolo`.
+
 ## Current Limitations
 
-- Seat-level occupancy is estimated from people detection and total capacity; no dedicated seat detector/classifier is included yet.
-- Live monitoring uses browser frame snapshots over HTTP; server-side RTSP/CCTV ingestion is structured for future work but not implemented yet.
-- Local filesystem storage is used for MVP simplicity; cloud object storage can be added behind the storage service.
-- The mock detector is deterministic and useful for demos, but not real CV inference.
-- Admin auth is intentionally simple and should be extended with refresh tokens, user management, and stricter production security controls.
+- Seat occupancy is still derived from detected people and facility capacity, not a true seat-level classifier.
+- Live monitoring is browser-webcam snapshot polling rather than RTSP/CCTV ingestion.
+- Sensor ingestion is currently a simulator script, not a full MQTT deployment.
+- Forecasting is baseline statistical logic, not a trained ML model.
+- Recommendation generation is rule-based and deterministic.
 
 ## Future Improvements
 
-- Add a real seat detector/classifier and camera calibration per facility
-- Add live camera frame sampling with configurable schedules
-- Add RTSP/CCTV ingestion workers and WebSocket or SSE live updates
-- Add alert thresholds and notification channels
-- Add CSV export for facility analytics
-- Add object storage support for S3/GCS
-- Add Playwright end-to-end tests for upload and admin workflows
-- Add role-based access beyond the seeded admin
-- Add model confidence summaries and detector health telemetry
+- Replace synthetic sensor ingestion with MQTT or stream-based telemetry
+- Add RTSP/CCTV workers and server-side sampling
+- Add WebSocket or SSE push updates
+- Train a stronger forecasting model with scikit-learn or XGBoost
+- Add detector health telemetry and model monitoring
+- Add export workflows and alert delivery channels
+- Add broader role-based access control
 
-## Resume-Style Highlights
+## Portfolio Highlights
 
-- Designed a full-stack, database-backed facility analytics platform with FastAPI, Next.js, PostgreSQL, SQLAlchemy, Alembic, and Docker Compose
-- Implemented modular CV inference architecture with a YOLO-ready detector interface and graceful mock fallback
-- Built historical occupancy tracking, congestion scoring, peak-hour analytics, and busiest-facility ranking queries
-- Created JWT-protected admin workflows for facility management and operational monitoring
-- Added migration, seed, and test coverage to support reproducible local demos and continued development
+- Built a real-time facility operations analytics platform using Next.js, FastAPI, PostgreSQL, Docker, and computer vision to monitor occupancy and congestion.
+- Designed a time-series analytics pipeline for facility occupancy and sensor data.
+- Implemented forecasting and recommendation APIs to predict near-term congestion and suggest operational actions.
+- Added live monitoring and production-minded testing workflows.

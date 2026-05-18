@@ -9,7 +9,9 @@ from app.core.config import get_settings
 from app.cv.annotate import annotate_image
 from app.cv.detector import get_detector
 from app.models import Analysis, Facility, OccupancyLog, Upload, User
+from app.schemas.analysis import HistoryPoint
 from app.services.congestion import calculate_congestion
+from app.services.operations import create_occupancy_log
 from app.services.storage import public_url_for_path
 
 
@@ -43,7 +45,23 @@ def analyze_image_for_facility(facility: Facility, image_path: Path, annotate: b
     return detection, congestion, annotated_path
 
 
-def create_analysis_record(db: Session, facility: Facility, upload: Upload, congestion, annotated_path: Path | None = None) -> Analysis:
+def detection_confidence(detection) -> float | None:
+    confidences = [box.confidence for box in detection.boxes if box.confidence is not None]
+    if not confidences:
+        return None
+    return round(sum(confidences) / len(confidences), 4)
+
+
+def create_analysis_record(
+    db: Session,
+    facility: Facility,
+    upload: Upload,
+    congestion,
+    annotated_path: Path | None = None,
+    *,
+    detection=None,
+    source_type: str = "image_upload",
+) -> Analysis:
     analysis = Analysis(
         facility_id=facility.id,
         upload_id=upload.id,
@@ -57,18 +75,21 @@ def create_analysis_record(db: Session, facility: Facility, upload: Upload, cong
     )
     db.add(analysis)
     db.flush()
-    db.add(
-        OccupancyLog(
-            facility_id=facility.id,
-            analysis_id=analysis.id,
-            timestamp=analysis.created_at or datetime.utcnow(),
-            people_count=analysis.people_count,
-            occupied_seats=analysis.occupied_seats,
-            available_seats=analysis.available_seats,
-            occupancy_rate=analysis.occupancy_rate,
-            congestion_score=analysis.congestion_score,
-            congestion_level=analysis.congestion_level,
-        )
+    create_occupancy_log(
+        db,
+        facility_id=facility.id,
+        analysis_id=analysis.id,
+        timestamp=analysis.created_at or datetime.utcnow(),
+        people_count=analysis.people_count,
+        occupied_seats=analysis.occupied_seats,
+        available_seats=analysis.available_seats,
+        occupancy_rate=analysis.occupancy_rate,
+        congestion_score=analysis.congestion_score,
+        congestion_level=analysis.congestion_level,
+        confidence=detection_confidence(detection) if detection else None,
+        source_type=source_type,
+        image_path=upload.file_path,
+        annotated_image_path=str(annotated_path) if annotated_path else None,
     )
     db.commit()
     db.refresh(analysis)
@@ -80,8 +101,16 @@ def run_analysis_for_upload(db: Session, upload: Upload) -> Analysis:
     if not facility:
         raise ValueError("Facility not found for upload")
 
-    _, congestion, annotated_path = analyze_image_for_facility(facility, Path(upload.file_path), annotate=True)
-    return create_analysis_record(db, facility, upload, congestion, annotated_path)
+    detection, congestion, annotated_path = analyze_image_for_facility(facility, Path(upload.file_path), annotate=True)
+    return create_analysis_record(
+        db,
+        facility,
+        upload,
+        congestion,
+        annotated_path,
+        detection=detection,
+        source_type="image_upload",
+    )
 
 
 def analysis_to_dict(analysis: Analysis) -> dict:
@@ -107,8 +136,8 @@ def get_analysis(db: Session, analysis_id: int) -> Analysis | None:
     return db.get(Analysis, analysis_id)
 
 
-def list_history(db: Session, facility_id: int, limit: int = 100) -> list[OccupancyLog]:
-    return list(
+def list_history(db: Session, facility_id: int, limit: int = 100) -> list[HistoryPoint]:
+    logs = list(
         db.scalars(
             select(OccupancyLog)
             .where(OccupancyLog.facility_id == facility_id)
@@ -116,3 +145,15 @@ def list_history(db: Session, facility_id: int, limit: int = 100) -> list[Occupa
             .limit(limit)
         ).all()
     )
+    return [
+        HistoryPoint(
+            timestamp=log.timestamp,
+            people_count=log.people_count,
+            occupied_seats=log.occupied_seats,
+            available_seats=log.available_seats,
+            occupancy_rate=log.occupancy_rate,
+            congestion_score=log.congestion_score,
+            congestion_level=log.congestion_level,
+        )
+        for log in logs
+    ]

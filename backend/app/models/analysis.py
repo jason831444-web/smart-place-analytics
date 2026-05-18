@@ -31,7 +31,7 @@ class OccupancyLog(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id", ondelete="CASCADE"), index=True, nullable=False)
-    analysis_id: Mapped[int] = mapped_column(ForeignKey("analyses.id", ondelete="CASCADE"), index=True, nullable=False)
+    analysis_id: Mapped[int | None] = mapped_column(ForeignKey("analyses.id", ondelete="SET NULL"), index=True, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True, nullable=False)
     people_count: Mapped[int] = mapped_column(Integer, nullable=False)
     occupied_seats: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -39,7 +39,11 @@ class OccupancyLog(Base):
     occupancy_rate: Mapped[float] = mapped_column(Float, nullable=False)
     congestion_score: Mapped[float] = mapped_column(Float, nullable=False)
     congestion_level: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    source_type: Mapped[str] = mapped_column(String(50), nullable=False, default="image_upload", index=True)
+    image_path: Mapped[str | None] = mapped_column(String(500))
+    annotated_image_path: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     facility = relationship("Facility", back_populates="occupancy_logs")
     analysis = relationship("Analysis", back_populates="occupancy_log")
-

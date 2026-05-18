@@ -4,8 +4,21 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.analysis import HistoryPoint
 from app.schemas.facility import FacilityRead, FacilityStatus
+from app.schemas.operations import (
+    FacilitySummaryRead,
+    ForecastRead,
+    LatestStatusRead,
+    OccupancyLogRead,
+    RecommendationRead,
+    SensorLogRead,
+    SensorSummaryRead,
+)
 from app.services.analysis import list_history
 from app.services.facilities import facility_status, get_facility_or_none, list_facilities
+from app.services.forecasting import forecast_response
+from app.services.operations import facility_summary, latest_status, list_occupancy_logs, serialize_occupancy_log
+from app.services.recommendations import build_recommendations
+from app.services.sensors import list_sensor_logs, sensor_summary
 
 router = APIRouter(prefix="/facilities", tags=["facilities"])
 
@@ -38,3 +51,58 @@ def history(facility_id: int, limit: int = 100, db: Session = Depends(get_db)) -
         raise HTTPException(status_code=404, detail="Facility not found")
     return list_history(db, facility_id, limit=min(limit, 500))
 
+
+@router.get("/{facility_id}/occupancy-logs", response_model=list[OccupancyLogRead])
+def occupancy_logs(facility_id: int, limit: int = 200, db: Session = Depends(get_db)) -> list[OccupancyLogRead]:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return [serialize_occupancy_log(log) for log in list_occupancy_logs(db, facility_id, limit=min(limit, 500))]
+
+
+@router.get("/{facility_id}/latest-status", response_model=LatestStatusRead)
+def latest_status_route(facility_id: int, db: Session = Depends(get_db)) -> LatestStatusRead:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return latest_status(db, facility_id)
+
+
+@router.get("/{facility_id}/summary", response_model=FacilitySummaryRead)
+def summary_route(facility_id: int, db: Session = Depends(get_db)) -> FacilitySummaryRead:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return facility_summary(db, facility_id)
+
+
+@router.get("/{facility_id}/sensor-logs", response_model=list[SensorLogRead])
+def sensor_logs_route(facility_id: int, limit: int = 200, db: Session = Depends(get_db)) -> list[SensorLogRead]:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return list_sensor_logs(db, facility_id, limit=min(limit, 500))
+
+
+@router.get("/{facility_id}/sensor-summary", response_model=SensorSummaryRead)
+def sensor_summary_route(facility_id: int, db: Session = Depends(get_db)) -> SensorSummaryRead:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return sensor_summary(db, facility_id)
+
+
+@router.get("/{facility_id}/forecast", response_model=ForecastRead)
+def forecast_route(facility_id: int, window_minutes: int = 60, db: Session = Depends(get_db)) -> ForecastRead:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return forecast_response(db, facility_id, window_minutes=max(15, min(window_minutes, 240)))
+
+
+@router.get("/{facility_id}/recommendations", response_model=list[RecommendationRead])
+def recommendations_route(facility_id: int, db: Session = Depends(get_db)) -> list[RecommendationRead]:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    return build_recommendations(db, facility_id)

@@ -15,10 +15,10 @@ export default async function HomePage() {
     <div className="space-y-8">
       <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:items-center">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">Operational analytics</p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-ink sm:text-6xl">Smart Seat and Facility Congestion Analysis System</h1>
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">Facility operations platform</p>
+          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-ink sm:text-6xl">Smart Place Analytics</h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-            Monitor seats, people count, and congestion across shared facilities with image-based analysis, persistent history, and admin analytics.
+            Monitor occupancy, energy, and operational risk across shared spaces with real-time camera analysis, time-series telemetry, forecasting, and action-oriented recommendations.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/facilities" className="focus-ring rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-white">View facilities</Link>
@@ -49,4 +49,3 @@ export default async function HomePage() {
     </div>
   );
 }
-

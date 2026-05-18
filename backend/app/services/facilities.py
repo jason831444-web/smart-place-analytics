@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models import Analysis, Facility
 from app.schemas.facility import FacilityCreate, FacilityStatus, FacilityUpdate
+from app.services.operations import latest_occupancy_log
 
 
 def list_facilities(db: Session) -> list[Facility]:
@@ -45,25 +46,24 @@ def latest_analysis_for_facility(db: Session, facility_id: int) -> Analysis | No
 
 
 def facility_status(db: Session, facility: Facility) -> FacilityStatus:
-    latest = latest_analysis_for_facility(db, facility.id)
-    if not latest:
+    latest_log = latest_occupancy_log(db, facility.id)
+    if not latest_log:
         return FacilityStatus(
             facility=facility,
             available_seats=facility.total_seats,
         )
     return FacilityStatus(
         facility=facility,
-        people_count=latest.people_count,
-        occupied_seats=latest.occupied_seats,
-        available_seats=latest.available_seats,
-        occupancy_rate=latest.occupancy_rate,
-        congestion_level=latest.congestion_level,
-        congestion_score=latest.congestion_score,
-        latest_analysis_id=latest.id,
-        latest_analysis_at=latest.created_at,
+        people_count=latest_log.people_count,
+        occupied_seats=latest_log.occupied_seats,
+        available_seats=latest_log.available_seats,
+        occupancy_rate=latest_log.occupancy_rate,
+        congestion_level=latest_log.congestion_level,
+        congestion_score=latest_log.congestion_score,
+        latest_analysis_id=latest_log.analysis_id,
+        latest_analysis_at=latest_log.timestamp,
     )
 
 
 def facility_with_recent(db: Session, facility_id: int) -> Facility | None:
     return db.scalar(select(Facility).options(selectinload(Facility.analyses)).where(Facility.id == facility_id))
-

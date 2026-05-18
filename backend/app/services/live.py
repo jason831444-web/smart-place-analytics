@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models import Analysis, Facility, OccupancyLog, Upload
 from app.schemas.analysis import LiveAnalysisRead
-from app.services.analysis import analyze_image_for_facility, create_analysis_record
+from app.services.analysis import analyze_image_for_facility, create_analysis_record, detection_confidence
+from app.services.operations import create_occupancy_log
 from app.services.storage import public_url_for_path, save_bytes_file
 
 
@@ -30,7 +31,10 @@ def live_persistence_decision(db: Session, facility_id: int, persist_requested: 
     now = now or datetime.utcnow()
     latest_timestamp = db.scalar(
         select(OccupancyLog.timestamp)
-        .where(OccupancyLog.facility_id == facility_id)
+        .where(
+            OccupancyLog.facility_id == facility_id,
+            OccupancyLog.analysis_id.is_not(None),
+        )
         .order_by(desc(OccupancyLog.timestamp))
         .limit(1)
     )
@@ -49,6 +53,7 @@ def analyze_live_frame(
     content_type: str,
     original_filename: str,
     persist_requested: bool,
+    source_type: str = "webcam",
 ) -> LiveAnalysisRead:
     decision = live_persistence_decision(db, facility.id, persist_requested)
     subdir = "uploads" if decision.should_persist else "live_frames"
@@ -59,6 +64,7 @@ def analyze_live_frame(
         max_bytes=get_settings().max_live_frame_bytes,
     )
     analysis: Analysis | None = None
+    occupancy_log = None
     upload: Upload | None = None
     remove_after_analysis = not decision.should_persist
 
@@ -77,7 +83,32 @@ def analyze_live_frame(
             )
             db.add(upload)
             db.flush()
-            analysis = create_analysis_record(db, facility, upload, congestion, annotated_path)
+            analysis = create_analysis_record(
+                db,
+                facility,
+                upload,
+                congestion,
+                annotated_path,
+                detection=detection,
+                source_type=source_type,
+            )
+            occupancy_log = analysis.occupancy_log
+        else:
+            occupancy_log = create_occupancy_log(
+                db,
+                facility_id=facility.id,
+                timestamp=datetime.utcnow(),
+                people_count=congestion.people_count,
+                occupied_seats=congestion.occupied_seats,
+                available_seats=congestion.available_seats,
+                occupancy_rate=congestion.occupancy_rate,
+                congestion_score=congestion.congestion_score,
+                congestion_level=congestion.congestion_level,
+                confidence=detection_confidence(detection),
+                source_type=source_type,
+            )
+            db.commit()
+            db.refresh(occupancy_log)
 
         return LiveAnalysisRead(
             facility_id=facility.id,
@@ -96,7 +127,7 @@ def analyze_live_frame(
             image_url=public_url_for_path(upload.file_path) if upload else None,
             annotated_image_url=public_url_for_path(analysis.annotated_image_path) if analysis else None,
             fallback_reason=detection.fallback_reason,
-            created_at=analysis.created_at if analysis else datetime.utcnow(),
+            created_at=occupancy_log.timestamp if occupancy_log else (analysis.created_at if analysis else datetime.utcnow()),
         )
     finally:
         if remove_after_analysis:

@@ -18,8 +18,8 @@ export function Shell({ children }: { children: ReactNode }) {
           <Link href="/" className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-sm font-bold text-white">SS</span>
             <div>
-              <p className="text-base font-semibold text-ink">Smart Seat Analytics</p>
-              <p className="text-xs text-slate-500">Facility congestion intelligence</p>
+              <p className="text-base font-semibold text-ink">Smart Place Analytics</p>
+              <p className="text-xs text-slate-500">Real-time facility operations intelligence</p>
             </div>
           </Link>
           <nav className="flex flex-wrap gap-2">
@@ -40,4 +40,3 @@ export function Shell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-

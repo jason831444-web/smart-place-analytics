@@ -35,6 +35,46 @@ export type HistoryPoint = {
   congestion_level: CongestionLevel;
 };
 
+export type OccupancyLog = HistoryPoint & {
+  id: number;
+  facility_id: number;
+  analysis_id?: number | null;
+  confidence?: number | null;
+  source_type: string;
+  image_path?: string | null;
+  annotated_image_path?: string | null;
+  image_url?: string | null;
+  annotated_image_url?: string | null;
+  created_at: string;
+};
+
+export type LatestStatus = {
+  facility_id: number;
+  timestamp?: string | null;
+  people_count: number;
+  occupied_seats: number;
+  available_seats: number;
+  occupancy_rate: number;
+  congestion_score: number;
+  congestion_level: CongestionLevel;
+  confidence?: number | null;
+  source_type?: string | null;
+  analysis_id?: number | null;
+  image_url?: string | null;
+  annotated_image_url?: string | null;
+};
+
+export type FacilitySummary = {
+  facility_id: number;
+  latest_occupancy_rate: number;
+  average_occupancy_rate: number;
+  peak_occupancy_rate: number;
+  high_congestion_events: number;
+  most_recent_timestamp?: string | null;
+  latest_people_count: number;
+  samples: number;
+};
+
 export type Analysis = {
   id: number;
   facility_id: number;
@@ -68,6 +108,55 @@ export type LiveAnalysis = {
   image_url?: string | null;
   annotated_image_url?: string | null;
   fallback_reason?: string | null;
+  created_at: string;
+};
+
+export type SensorLog = {
+  id: number;
+  facility_id: number;
+  timestamp: string;
+  temperature: number;
+  humidity: number;
+  power_kw: number;
+  door_count: number;
+  noise_level: number;
+  source_type: string;
+  created_at: string;
+};
+
+export type SensorSummary = {
+  facility_id: number;
+  latest_temperature?: number | null;
+  latest_humidity?: number | null;
+  latest_power_kw?: number | null;
+  latest_door_count?: number | null;
+  latest_noise_level?: number | null;
+  average_temperature: number;
+  average_humidity: number;
+  average_power_kw: number;
+  total_door_count: number;
+  average_noise_level: number;
+  most_recent_timestamp?: string | null;
+  samples: number;
+};
+
+export type Forecast = {
+  facility_id: number;
+  window_minutes: number;
+  predicted_occupancy_rate: number;
+  predicted_congestion_level: CongestionLevel;
+  confidence: number;
+  method: string;
+  explanation: string;
+  generated_at: string;
+};
+
+export type Recommendation = {
+  recommendation_type: string;
+  severity: "low" | "medium" | "high";
+  title: string;
+  message: string;
+  evidence: string[];
   created_at: string;
 };
 
