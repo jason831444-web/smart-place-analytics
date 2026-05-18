@@ -99,5 +99,49 @@ services:
         condition: service_started
     command: python scripts/run_operations_jobs.py --interval-seconds 30 --iterations 0 --generate-sensors --compute-rollups
 
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    profiles: ["mqtt"]
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  mqtt-subscriber:
+    build:
+      context: ./backend
+      args:
+        REQUIREMENTS_FILE: ${BACKEND_REQUIREMENTS_FILE:-requirements.txt}
+    profiles: ["mqtt"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://smart:smart@db:5432/smart_place
+      SECRET_KEY: local-development-secret
+      STORAGE_DIR: storage
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt-broker:
+        condition: service_started
+    command: python scripts/subscribe_sensor_mqtt.py --host mqtt-broker --port 1883
+
+  mqtt-publisher:
+    build:
+      context: ./backend
+      args:
+        REQUIREMENTS_FILE: ${BACKEND_REQUIREMENTS_FILE:-requirements.txt}
+    profiles: ["mqtt"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://smart:smart@db:5432/smart_place
+      SECRET_KEY: local-development-secret
+      STORAGE_DIR: storage
+    depends_on:
+      db:
+        condition: service_healthy
+      mqtt-broker:
+        condition: service_started
+      mqtt-subscriber:
+        condition: service_started
+    command: python scripts/publish_sensor_mqtt.py --host mqtt-broker --port 1883 --facility-id 1 --interval-seconds 5 --iterations 0
+
 volumes:
   postgres_data:

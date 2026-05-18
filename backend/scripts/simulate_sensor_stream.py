@@ -18,7 +18,7 @@ def run(interval_seconds: int, iterations: int | None) -> None:
             facilities = list(db.scalars(select(Facility).order_by(Facility.id)).all())
             for facility in facilities:
                 status = latest_status(db, facility.id)
-                payload = simulated_payload(facility, status.occupancy_rate)
+                payload = simulated_sensor_payload(facility, status.occupancy_rate)
                 create_sensor_log(
                     db,
                     facility_id=facility.id,

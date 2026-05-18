@@ -42,6 +42,13 @@ Optional background jobs:
     -> JobRun audit trail
     -> Operational alert refresh
     -> PostgreSQL
+
+Optional MQTT demo path:
+  MQTT publisher
+    -> Mosquitto broker
+    -> MQTT subscriber
+    -> SensorLog ingestion
+    -> existing rollups / alerts / dashboards
 ```
 
 ## Core Features
@@ -59,6 +66,7 @@ Optional background jobs:
 - Admin dashboard and facility management
 - Time-series occupancy logging for upload-driven and live analysis flows
 - Synthetic sensor telemetry simulator for industrial IoT-style demos
+- Optional MQTT-based telemetry ingestion for industrial IoT-style demos
 - Forecasting endpoint using moving-average and same-hour historical baselines
 - Recommendation engine for congestion, overflow, staffing, and energy actions
 
@@ -230,6 +238,12 @@ Run the optional operations job runner service:
 docker compose --profile operations up --build
 ```
 
+Run the optional MQTT demo stack:
+
+```bash
+docker compose --profile mqtt up --build
+```
+
 ## Local Setup Without Docker
 
 Backend:
@@ -275,6 +289,18 @@ Optional operations job runner:
 ```bash
 cd backend
 python scripts/run_operations_jobs.py --interval-seconds 30 --iterations 0 --generate-sensors --compute-rollups
+```
+
+Optional MQTT publisher and subscriber:
+
+```bash
+cd backend
+python scripts/subscribe_sensor_mqtt.py --host localhost --port 1883
+```
+
+```bash
+cd backend
+python scripts/publish_sensor_mqtt.py --host localhost --port 1883 --facility-id 1 --interval-seconds 5 --iterations 0
 ```
 
 Enable YOLO locally:
@@ -388,6 +414,50 @@ The simulator is implemented as:
 - `backend/scripts/simulate_sensor_stream.py`
 
 This keeps the architecture ready for a future MQTT broker or stream consumer while remaining easy to run locally today.
+
+## MQTT Telemetry Ingestion
+
+MQTT is an optional local demo path that layers onto the existing sensor architecture without replacing the simulator or background jobs.
+
+The MQTT flow is:
+
+```text
+synthetic MQTT publisher
+  -> Mosquitto broker
+  -> MQTT subscriber
+  -> SensorLog persistence
+  -> existing rollups, alerts, and dashboards
+```
+
+Topic format:
+
+- `smart-place/facilities/{facility_id}/sensors`
+
+Example payload:
+
+```json
+{
+  "timestamp": "2026-05-18T15:00:00Z",
+  "temperature": 22.4,
+  "humidity": 42.0,
+  "power_kw": 10.8,
+  "door_count": 14,
+  "noise_level": 51.2,
+  "source_type": "mqtt"
+}
+```
+
+Files:
+
+- `backend/app/services/mqtt_sensors.py`
+- `backend/scripts/publish_sensor_mqtt.py`
+- `backend/scripts/subscribe_sensor_mqtt.py`
+
+Verification path after messages are ingested:
+
+- `GET /api/facilities/{facility_id}/sensor-logs`
+- `GET /api/operations/job-status`
+- facility detail dashboard `Operations Pipeline` card
 
 ## Operational Rollups
 
@@ -612,15 +682,19 @@ CI:
 - YOLO remains opt-in through `requirements-ml.txt` and `CV_BACKEND=yolo`.
 - Background jobs use a simple loop-and-sleep runner rather than a distributed queue for the MVP.
 - Operations endpoints refresh alert state on read so the dashboard reflects current stale or overdue conditions.
+- MQTT ingestion is optional and only activates when you run the broker and subscriber.
 
 ## Current Limitations
 
 - Seat occupancy is still derived from detected people and facility capacity, not a true seat-level classifier.
 - Live monitoring is browser-webcam snapshot polling rather than RTSP/CCTV ingestion.
 - Sensor ingestion is currently a simulator script, not a full MQTT deployment.
+- MQTT is an optional local-demo ingestion path with a local Mosquitto broker.
 - Operational rollups are periodic database snapshots rather than materialized views or streaming aggregations.
 - Job audit trails are stored in the application database rather than exported to a separate monitoring stack.
 - Alerts are lightweight operational signals, not a full incident management workflow with acknowledgements or notifications.
+- The local MQTT broker is intentionally unauthenticated and non-TLS for development convenience.
+- There is no production message queue, retained-topic strategy, or cloud IoT integration yet.
 - Forecasting is baseline statistical logic, not a trained ML model.
 - Recommendation generation is rule-based and deterministic.
 - MQTT ingestion, ML forecasting, and end-to-end browser tests are planned next steps.
@@ -643,3 +717,4 @@ CI:
 - Added live monitoring and production-minded testing workflows.
 - Added a lightweight background operations pipeline that periodically generates telemetry and computes facility rollups for time-series monitoring and operational decision support.
 - Added job audit trails and operational alerts to track background pipeline health, stale telemetry, overdue rollups, and facility-level operational risks.
+- Added optional MQTT-based telemetry ingestion with a local broker, publisher, subscriber, validation layer, and SensorLog persistence to simulate an industrial IoT data pipeline.

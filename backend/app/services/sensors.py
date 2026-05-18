@@ -14,6 +14,8 @@ def normalize_sensor_source_type(source_type: str | None) -> str:
         "simulator": "simulator",
         "sensor_simulator": "simulator",
         "seed": "simulator",
+        "mqtt": "mqtt",
+        "mqtt_subscriber": "mqtt",
     }
     return aliases.get(normalized, "simulator")
 
