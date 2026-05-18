@@ -39,6 +39,8 @@ Optional background jobs:
   sensor simulator script / operations job runner
     -> SensorLog ingestion
     -> FacilityOperationalRollup generation
+    -> JobRun audit trail
+    -> Operational alert refresh
     -> PostgreSQL
 ```
 
@@ -164,6 +166,34 @@ This allows both persisted upload analyses and transient live webcam analyses to
 - `avg_noise_level` nullable
 - `recommendation_count`
 - `created_at`
+
+#### `job_runs`
+
+- `id`
+- `job_name`
+- `status`
+- `started_at`
+- `finished_at`
+- `duration_ms`
+- `facilities_processed`
+- `sensors_generated`
+- `rollups_computed`
+- `error_message` nullable
+- `created_at`
+
+#### `alerts`
+
+The alert model is extended for lightweight operational observability:
+
+- `facility_id`
+- `alert_type`
+- `severity`
+- `title`
+- `threshold`
+- `message`
+- `evidence_json`
+- `status`
+- `triggered_at`
 
 ## Local Setup With Docker
 
@@ -392,6 +422,8 @@ Supported behaviors:
 
 - generate synthetic sensor logs for facilities
 - compute facility operational rollups
+- record a `job_runs` audit row for every iteration
+- refresh operational alerts for each successfully processed facility
 - target one facility or all facilities
 - run once, a fixed number of iterations, or forever
 
@@ -408,6 +440,37 @@ python scripts/run_operations_jobs.py --facility-id 1 --interval-seconds 15 --it
 ```
 
 The purpose is to demonstrate scheduled operational data pipelines in addition to request/response analytics.
+
+## Job Audit Trail
+
+Every background job iteration now records a `job_runs` row with:
+
+- start and finish time
+- duration in milliseconds
+- facilities successfully processed
+- number of sensor logs generated
+- number of rollups computed
+- final job status: `success`, `partial`, or `failed`
+- aggregated error details when something goes wrong
+
+This makes it easy to answer:
+
+- when the pipeline last ran
+- whether the last run completed successfully
+- whether some facilities failed while others still succeeded
+
+## Operational Alerts
+
+Operational alerts are generated from current facility state and refreshed by both the background runner and operations endpoints.
+
+Current alert types:
+
+- `stale_telemetry`
+- `overdue_rollup`
+- `high_congestion`
+- `energy_mismatch`
+
+These alerts make the platform observable in a practical way without introducing a heavyweight incident system.
 
 ## Forecasting
 
@@ -457,6 +520,7 @@ Current rules cover:
 - `GET /api/facilities/{facility_id}/sensor-summary`
 - `GET /api/facilities/{facility_id}/rollups`
 - `GET /api/facilities/{facility_id}/rollups/latest`
+- `GET /api/facilities/{facility_id}/operations-alerts`
 - `GET /api/facilities/{facility_id}/forecast?window_minutes=60`
 - `GET /api/facilities/{facility_id}/recommendations`
 - `POST /api/uploads`
@@ -481,6 +545,8 @@ Current rules cover:
 ### Operations pipeline
 
 - `GET /api/operations/job-status`
+- `GET /api/operations/job-runs`
+- `GET /api/operations/alerts`
 
 ## UI Overview
 
@@ -545,6 +611,7 @@ CI:
 - The default Docker path remains lightweight with the mock detector.
 - YOLO remains opt-in through `requirements-ml.txt` and `CV_BACKEND=yolo`.
 - Background jobs use a simple loop-and-sleep runner rather than a distributed queue for the MVP.
+- Operations endpoints refresh alert state on read so the dashboard reflects current stale or overdue conditions.
 
 ## Current Limitations
 
@@ -552,6 +619,8 @@ CI:
 - Live monitoring is browser-webcam snapshot polling rather than RTSP/CCTV ingestion.
 - Sensor ingestion is currently a simulator script, not a full MQTT deployment.
 - Operational rollups are periodic database snapshots rather than materialized views or streaming aggregations.
+- Job audit trails are stored in the application database rather than exported to a separate monitoring stack.
+- Alerts are lightweight operational signals, not a full incident management workflow with acknowledgements or notifications.
 - Forecasting is baseline statistical logic, not a trained ML model.
 - Recommendation generation is rule-based and deterministic.
 - MQTT ingestion, ML forecasting, and end-to-end browser tests are planned next steps.
@@ -573,3 +642,4 @@ CI:
 - Implemented forecasting and recommendation APIs to predict near-term congestion and suggest operational actions.
 - Added live monitoring and production-minded testing workflows.
 - Added a lightweight background operations pipeline that periodically generates telemetry and computes facility rollups for time-series monitoring and operational decision support.
+- Added job audit trails and operational alerts to track background pipeline health, stale telemetry, overdue rollups, and facility-level operational risks.

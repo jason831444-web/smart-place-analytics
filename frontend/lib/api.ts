@@ -11,6 +11,7 @@ import type {
   LatestStatus,
   LiveAnalysis,
   OccupancyLog,
+  OperationalAlert,
   Recommendation,
   SensorLog,
   SensorSummary
@@ -98,9 +99,11 @@ export const api = {
   sensorSummary: (id: number) => request<SensorSummary>(`/facilities/${id}/sensor-summary`),
   rollups: (id: number) => request<FacilityOperationalRollup[]>(`/facilities/${id}/rollups?limit=60`),
   latestRollup: (id: number) => request<FacilityOperationalRollup | null>(`/facilities/${id}/rollups/latest`),
+  facilityOperationsAlerts: (id: number) => request<OperationalAlert[]>(`/facilities/${id}/operations-alerts`),
   forecast: (id: number, windowMinutes = 60) => request<Forecast>(`/facilities/${id}/forecast?window_minutes=${windowMinutes}`),
   recommendations: (id: number) => request<Recommendation[]>(`/facilities/${id}/recommendations`),
   jobStatus: () => request<JobStatus>("/operations/job-status"),
+  operationsAlerts: () => request<OperationalAlert[]>("/operations/alerts"),
   analysis: (id: number) => request<Analysis>(`/analyses/${id}`),
   uploadAnalyze: (facilityId: number, file: File) => {
     const form = new FormData();

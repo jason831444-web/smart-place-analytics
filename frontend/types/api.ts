@@ -177,12 +177,40 @@ export type Recommendation = {
 };
 
 export type JobStatus = {
+  latest_job_run?: JobRun | null;
   latest_sensor_log_at?: string | null;
   latest_rollup_at?: string | null;
   total_sensor_logs: number;
   total_rollups: number;
+  active_alert_count: number;
   facilities_with_recent_activity: number;
   generated_at: string;
+};
+
+export type JobRun = {
+  id: number;
+  job_name: string;
+  status: "success" | "failed" | "partial";
+  started_at: string;
+  finished_at?: string | null;
+  duration_ms?: number | null;
+  facilities_processed: number;
+  sensors_generated: number;
+  rollups_computed: number;
+  error_message?: string | null;
+  created_at: string;
+};
+
+export type OperationalAlert = {
+  id: number;
+  alert_type: string;
+  severity: "low" | "medium" | "high";
+  title: string;
+  message: string;
+  facility_id: number;
+  evidence: string[];
+  status: string;
+  created_at: string;
 };
 
 export type FacilityMetric = {

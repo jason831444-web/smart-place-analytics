@@ -11,7 +11,20 @@ import { SensorChart } from "@/components/SensorChart";
 import { UploadAnalyzer } from "@/components/UploadAnalyzer";
 import { api } from "@/lib/api";
 import { percent, score, shortDate } from "@/lib/format";
-import type { FacilityOperationalRollup, FacilityStatus, FacilitySummary, Forecast, JobStatus, LatestStatus } from "@/types/api";
+import type { FacilityOperationalRollup, FacilityStatus, FacilitySummary, Forecast, JobStatus, LatestStatus, OperationalAlert } from "@/types/api";
+
+function operationsHealth(jobStatus: JobStatus | null, alerts: OperationalAlert[]): { label: "healthy" | "warning" | "stale"; tone: string } {
+  const hasStaleness = alerts.some((alert) => alert.alert_type === "stale_telemetry" || alert.alert_type === "overdue_rollup");
+  const latestJobStatus = jobStatus?.latest_job_run?.status;
+
+  if (!jobStatus?.latest_job_run || latestJobStatus === "failed" || hasStaleness) {
+    return { label: "stale", tone: "bg-rose-50 text-rose-700 border-rose-200" };
+  }
+  if (latestJobStatus === "partial" || alerts.length > 0) {
+    return { label: "warning", tone: "bg-amber-50 text-amber-700 border-amber-200" };
+  }
+  return { label: "healthy", tone: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+}
 
 export default async function FacilityDetailPage({
   params
@@ -25,7 +38,7 @@ export default async function FacilityDetailPage({
     notFound();
   }
 
-  const [facility, statusResponse, latestStatusResponse, history, summaryResponse, sensorLogs, sensorSummary, latestRollupResponse, jobStatusResponse, forecastResponse, recommendations] = await Promise.all([
+  const [facility, statusResponse, latestStatusResponse, history, summaryResponse, sensorLogs, sensorSummary, latestRollupResponse, jobStatusResponse, facilityAlerts, forecastResponse, recommendations] = await Promise.all([
     api.facility(id).catch(() => null),
     api.status(id).catch(() => null),
     api.latestStatus(id).catch(() => null),
@@ -35,6 +48,7 @@ export default async function FacilityDetailPage({
     api.sensorSummary(id).catch(() => null),
     api.latestRollup(id).catch(() => null),
     api.jobStatus().catch(() => null),
+    api.facilityOperationsAlerts(id).catch(() => []),
     api.forecast(id).catch(() => null),
     api.recommendations(id).catch(() => [])
   ]);
@@ -89,6 +103,7 @@ export default async function FacilityDetailPage({
   const forecast: Forecast | null = forecastResponse;
   const latestRollup: FacilityOperationalRollup | null = latestRollupResponse;
   const jobStatus: JobStatus | null = jobStatusResponse;
+  const pipelineHealth = operationsHealth(jobStatus, facilityAlerts);
 
   const image =
     facility.image_url ??
@@ -183,8 +198,16 @@ export default async function FacilityDetailPage({
         </div>
 
         <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
-          <h2 className="text-lg font-semibold text-ink">Operations Pipeline</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-semibold text-ink">Operations Pipeline</h2>
+            <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] ${pipelineHealth.tone}`}>
+              {pipelineHealth.label}
+            </span>
+          </div>
           <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <p>
+              Latest job run: {jobStatus?.latest_job_run ? `${jobStatus.latest_job_run.status} · ${shortDate(jobStatus.latest_job_run.finished_at ?? jobStatus.latest_job_run.started_at)}` : "No job run recorded yet"}
+            </p>
             <p>Latest sensor update: {shortDate(jobStatus?.latest_sensor_log_at ?? null)}</p>
             <p>Latest rollup: {shortDate(latestRollup?.timestamp ?? jobStatus?.latest_rollup_at ?? null)}</p>
             <p>
@@ -193,9 +216,22 @@ export default async function FacilityDetailPage({
             <p>
               Recent activity: {jobStatus ? `${jobStatus.facilities_with_recent_activity} facilities · ${jobStatus.total_rollups} rollups stored` : "Job status unavailable"}
             </p>
+            <p>Active alerts: {jobStatus?.active_alert_count ?? facilityAlerts.length}</p>
             <p>
               Local runner: <code className="rounded bg-panel px-1.5 py-0.5 text-xs text-ink">python scripts/run_operations_jobs.py --interval-seconds 30</code>
             </p>
+          </div>
+          <div className="mt-4 space-y-2 border-t border-line pt-4 text-sm text-slate-600">
+            {facilityAlerts.length ? (
+              facilityAlerts.slice(0, 3).map((alert) => (
+                <div key={alert.id} className="rounded-lg bg-panel p-3">
+                  <p className="font-semibold text-ink">{alert.title}</p>
+                  <p className="mt-1 leading-6">{alert.message}</p>
+                </div>
+              ))
+            ) : (
+              <p>No active operational alerts for this facility.</p>
+            )}
           </div>
         </div>
       </section>

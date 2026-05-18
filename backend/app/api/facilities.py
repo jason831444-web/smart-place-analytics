@@ -12,10 +12,12 @@ from app.schemas.operations import (
     ForecastRead,
     LatestStatusRead,
     OccupancyLogRead,
+    OperationalAlertRead,
     RecommendationRead,
     SensorLogRead,
     SensorSummaryRead,
 )
+from app.services.alerts import list_active_alerts, refresh_all_operational_alerts, serialize_alert
 from app.services.analysis import list_history
 from app.services.facilities import facility_status, get_facility_or_none, list_facilities
 from app.services.forecasting import forecast_response
@@ -143,3 +145,13 @@ def latest_rollup_route(facility_id: int, db: Session = Depends(get_db)) -> Faci
         raise HTTPException(status_code=404, detail="Facility not found")
     rollup = latest_rollup(db, facility_id)
     return serialize_rollup(rollup) if rollup else None
+
+
+@router.get("/{facility_id}/operations-alerts", response_model=list[OperationalAlertRead])
+def facility_operations_alerts(facility_id: int, db: Session = Depends(get_db)) -> list[OperationalAlertRead]:
+    facility = get_facility_or_none(db, facility_id)
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+    refresh_all_operational_alerts(db, facility_id=facility_id)
+    db.commit()
+    return [serialize_alert(alert) for alert in list_active_alerts(db, facility_id=facility_id)]

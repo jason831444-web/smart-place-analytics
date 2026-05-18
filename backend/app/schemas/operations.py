@@ -121,10 +121,40 @@ class RecommendationRead(BaseModel):
     created_at: datetime
 
 
+class JobRunRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    job_name: str
+    status: str
+    started_at: datetime
+    finished_at: datetime | None = None
+    duration_ms: int | None = None
+    facilities_processed: int
+    sensors_generated: int
+    rollups_computed: int
+    error_message: str | None = None
+    created_at: datetime
+
+
+class OperationalAlertRead(BaseModel):
+    id: int
+    alert_type: str
+    severity: str
+    title: str
+    message: str
+    facility_id: int
+    evidence: list[str]
+    status: str
+    created_at: datetime
+
+
 class JobStatusRead(BaseModel):
+    latest_job_run: JobRunRead | None = None
     latest_sensor_log_at: datetime | None = None
     latest_rollup_at: datetime | None = None
     total_sensor_logs: int = 0
     total_rollups: int = 0
+    active_alert_count: int = 0
     facilities_with_recent_activity: int = 0
     generated_at: datetime

@@ -7,7 +7,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.db.session import Base, get_db
 from app.main import app
-from app.models import Facility
+from app.models import Facility, JobRun
+from app.services.alerts import refresh_all_operational_alerts
+from app.services.job_runner import run_iteration
 from app.services.operations import create_occupancy_log
 from app.services.rollups import compute_and_store_rollup
 from app.services.sensors import create_sensor_log
@@ -292,3 +294,125 @@ def test_job_status_endpoint_reports_recent_background_activity() -> None:
     assert payload["latest_sensor_log_at"] is not None
     assert payload["latest_rollup_at"] is not None
     assert payload["generated_at"] is not None
+
+
+def test_job_run_is_created_after_job_iteration() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="North Hall", type="Library", location="3F", total_seats=20)
+    db.add(facility)
+    db.commit()
+    db.close()
+
+    result = run_iteration(
+        generate_sensors=True,
+        compute_rollups=True,
+        window_minutes=60,
+        session_factory=TestingSessionLocal,
+    )
+
+    db = TestingSessionLocal()
+    job_runs = db.query(JobRun).all()
+    db.close()
+    app.dependency_overrides.clear()
+
+    assert result.status == "success"
+    assert result.facilities_processed == 1
+    assert len(job_runs) == 1
+    assert job_runs[0].job_name == "operations_pipeline"
+    assert job_runs[0].status == "success"
+    assert job_runs[0].sensors_generated == 1
+    assert job_runs[0].rollups_computed == 1
+
+
+def test_stale_telemetry_and_overdue_rollup_alert_generation() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="Annex", type="Study Room", location="Basement", total_seats=10)
+    db.add(facility)
+    db.flush()
+
+    create_occupancy_log(
+        db,
+        facility_id=facility.id,
+        timestamp=utc_now() - timedelta(minutes=5),
+        people_count=2,
+        occupied_seats=2,
+        available_seats=8,
+        occupancy_rate=0.2,
+        congestion_score=20,
+        congestion_level="Low",
+        source_type="image_upload",
+    )
+    db.commit()
+
+    alerts = refresh_all_operational_alerts(db, facility_id=facility.id)
+    alert_types = {alert.alert_type for alert in alerts}
+    db.commit()
+    db.close()
+    app.dependency_overrides.clear()
+
+    assert "stale_telemetry" in alert_types
+    assert "overdue_rollup" in alert_types
+
+
+def test_operations_alerts_endpoint_returns_expected_shape() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="Commons", type="Cafe", location="Lobby", total_seats=24)
+    db.add(facility)
+    db.flush()
+
+    create_occupancy_log(
+        db,
+        facility_id=facility.id,
+        timestamp=utc_now() - timedelta(minutes=2),
+        people_count=22,
+        occupied_seats=22,
+        available_seats=2,
+        occupancy_rate=0.92,
+        congestion_score=92,
+        congestion_level="High",
+        source_type="webcam",
+    )
+    db.commit()
+    db.close()
+
+    try:
+        client = TestClient(app)
+        response = client.get("/api/operations/alerts")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert isinstance(payload, list)
+    assert payload
+    assert {"alert_type", "severity", "title", "message", "facility_id", "evidence", "created_at"}.issubset(payload[0].keys())
+
+
+def test_job_status_includes_latest_job_run() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="West Wing", type="Library", location="2F", total_seats=18)
+    db.add(facility)
+    db.commit()
+    db.close()
+
+    run_iteration(
+        generate_sensors=True,
+        compute_rollups=False,
+        session_factory=TestingSessionLocal,
+    )
+
+    try:
+        client = TestClient(app)
+        response = client.get("/api/operations/job-status")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["latest_job_run"] is not None
+    assert payload["latest_job_run"]["job_name"] == "operations_pipeline"
+    assert payload["latest_job_run"]["status"] == "success"
