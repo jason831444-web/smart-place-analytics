@@ -11,6 +11,7 @@ from app.schemas.analysis import LiveAnalysisRead
 from app.services.analysis import analyze_image_for_facility, create_analysis_record, detection_confidence
 from app.services.operations import create_occupancy_log
 from app.services.storage import public_url_for_path, save_bytes_file
+from app.utils.time import utc_now
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,7 @@ def live_persistence_decision(db: Session, facility_id: int, persist_requested: 
     if interval == 0:
         return LivePersistenceDecision(should_persist=True, next_persist_after_seconds=0)
 
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     latest_timestamp = db.scalar(
         select(OccupancyLog.timestamp)
         .where(
@@ -97,7 +98,7 @@ def analyze_live_frame(
             occupancy_log = create_occupancy_log(
                 db,
                 facility_id=facility.id,
-                timestamp=datetime.utcnow(),
+                timestamp=utc_now(),
                 people_count=congestion.people_count,
                 occupied_seats=congestion.occupied_seats,
                 available_seats=congestion.available_seats,
@@ -127,7 +128,7 @@ def analyze_live_frame(
             image_url=public_url_for_path(upload.file_path) if upload else None,
             annotated_image_url=public_url_for_path(analysis.annotated_image_path) if analysis else None,
             fallback_reason=detection.fallback_reason,
-            created_at=occupancy_log.timestamp if occupancy_log else (analysis.created_at if analysis else datetime.utcnow()),
+            created_at=occupancy_log.timestamp if occupancy_log else (analysis.created_at if analysis else utc_now()),
         )
     finally:
         if remove_after_analysis:

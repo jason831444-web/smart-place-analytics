@@ -123,6 +123,11 @@ export function LiveMonitor({ facility }: { facility: Facility }) {
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
+    if (framePreviewRef.current) {
+      URL.revokeObjectURL(framePreviewRef.current);
+      framePreviewRef.current = null;
+    }
+    setFramePreview(null);
     setRunning(false);
     setAnalyzing(false);
     analyzingRef.current = false;

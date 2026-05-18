@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
+from app.utils.time import utc_now
 
 
 class Facility(Base):
@@ -17,8 +18,8 @@ class Facility(Base):
     total_seats: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     seat_usage_factor: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     image_url: Mapped[str | None] = mapped_column(String(500))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     uploads = relationship("Upload", back_populates="facility", cascade="all, delete-orphan")
     analyses = relationship("Analysis", back_populates="facility", cascade="all, delete-orphan")

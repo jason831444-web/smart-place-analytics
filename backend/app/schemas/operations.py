@@ -1,9 +1,11 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class OccupancyLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     facility_id: int
     analysis_id: int | None = None
@@ -21,9 +23,6 @@ class OccupancyLogRead(BaseModel):
     image_url: str | None = None
     annotated_image_url: str | None = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class LatestStatusRead(BaseModel):
@@ -54,6 +53,8 @@ class FacilitySummaryRead(BaseModel):
 
 
 class SensorLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     facility_id: int
     timestamp: datetime
@@ -64,9 +65,6 @@ class SensorLogRead(BaseModel):
     noise_level: float
     source_type: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class SensorSummaryRead(BaseModel):

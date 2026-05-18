@@ -200,6 +200,15 @@ cp .env.example .env.local
 npm run dev
 ```
 
+Frontend production validation:
+
+```bash
+cd frontend
+npm run build
+```
+
+The frontend `build` script uses the Webpack build path for compatibility with the current local setup.
+
 Optional sensor simulator:
 
 ```bash
@@ -292,6 +301,14 @@ How it works:
 7. Full upload + analysis persistence still follows the existing throttled interval to avoid storing every frame as a heavy media artifact.
 
 This keeps the platform near-real-time without overwhelming the database or storage layer.
+
+Data conventions:
+
+- `occupancy_rate` is stored and returned as a `0.0-1.0` fraction and rendered as a percentage in the frontend.
+- `confidence` is stored and returned as a `0.0-1.0` score.
+- `congestion_level` values are `Low`, `Medium`, and `High`.
+- Occupancy `source_type` values normalize to `image_upload` or `webcam`.
+- Sensor `source_type` values normalize to `simulator`.
 
 ## Sensor Simulation
 
@@ -447,6 +464,7 @@ CI:
 - Sensor ingestion is currently a simulator script, not a full MQTT deployment.
 - Forecasting is baseline statistical logic, not a trained ML model.
 - Recommendation generation is rule-based and deterministic.
+- MQTT ingestion, ML forecasting, and end-to-end browser tests are planned next steps.
 
 ## Future Improvements
 

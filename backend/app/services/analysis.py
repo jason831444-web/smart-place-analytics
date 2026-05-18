@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,6 +12,7 @@ from app.schemas.analysis import HistoryPoint
 from app.services.congestion import calculate_congestion
 from app.services.operations import create_occupancy_log
 from app.services.storage import public_url_for_path
+from app.utils.time import utc_now
 
 
 def create_upload_record(db: Session, facility: Facility, path: Path, original_filename: str, user: User | None = None) -> Upload:
@@ -79,7 +79,7 @@ def create_analysis_record(
         db,
         facility_id=facility.id,
         analysis_id=analysis.id,
-        timestamp=analysis.created_at or datetime.utcnow(),
+        timestamp=analysis.created_at or utc_now(),
         people_count=analysis.people_count,
         occupied_seats=analysis.occupied_seats,
         available_seats=analysis.available_seats,

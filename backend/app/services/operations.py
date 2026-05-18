@@ -7,6 +7,20 @@ from app.models import OccupancyLog
 from app.schemas.operations import FacilitySummaryRead, LatestStatusRead, OccupancyLogRead
 from app.services.storage import public_url_for_path
 
+def normalize_occupancy_source_type(source_type: str | None) -> str:
+    normalized = (source_type or "").strip().lower()
+    aliases = {
+        "upload": "image_upload",
+        "image": "image_upload",
+        "image_upload": "image_upload",
+        "live": "webcam",
+        "webcam": "webcam",
+        "camera": "webcam",
+        "simulator": "simulator",
+        "seed": "simulator",
+    }
+    return aliases.get(normalized, "image_upload")
+
 
 def create_occupancy_log(
     db: Session,
@@ -36,7 +50,7 @@ def create_occupancy_log(
         congestion_score=congestion_score,
         congestion_level=congestion_level,
         confidence=confidence,
-        source_type=source_type,
+        source_type=normalize_occupancy_source_type(source_type),
         image_path=image_path,
         annotated_image_path=annotated_image_path,
     )

@@ -18,25 +18,31 @@ export function RecommendationList({ items }: { items: Recommendation[] }) {
           Actionable suggestions generated from current occupancy, forecast, and sensor context.
         </p>
       </div>
-      <div className="space-y-3">
-        {items.map((item, index) => (
-          <div key={`${item.recommendation_type}-${index}`} className={clsx("rounded-lg border p-4", severityStyles[item.severity])}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em]">{item.severity}</p>
-                <h3 className="mt-1 text-base font-semibold">{item.title}</h3>
+      {items.length ? (
+        <div className="space-y-3">
+          {items.map((item, index) => (
+            <div key={`${item.recommendation_type}-${index}`} className={clsx("rounded-lg border p-4", severityStyles[item.severity])}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em]">{item.severity}</p>
+                  <h3 className="mt-1 text-base font-semibold">{item.title}</h3>
+                </div>
+                <p className="text-xs">{shortDate(item.created_at)}</p>
               </div>
-              <p className="text-xs">{shortDate(item.created_at)}</p>
+              <p className="mt-3 text-sm leading-6">{item.message}</p>
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+                {item.evidence.map((entry) => (
+                  <li key={entry}>{entry}</li>
+                ))}
+              </ul>
             </div>
-            <p className="mt-3 text-sm leading-6">{item.message}</p>
-            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-              {item.evidence.map((entry) => (
-                <li key={entry}>{entry}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-line bg-panel p-5 text-sm text-slate-500">
+          No recommendations are available right now.
+        </div>
+      )}
     </div>
   );
 }

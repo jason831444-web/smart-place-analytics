@@ -11,6 +11,7 @@ import { SensorChart } from "@/components/SensorChart";
 import { UploadAnalyzer } from "@/components/UploadAnalyzer";
 import { api } from "@/lib/api";
 import { percent, score, shortDate } from "@/lib/format";
+import type { FacilityStatus, FacilitySummary, Forecast, LatestStatus } from "@/types/api";
 
 export default async function FacilityDetailPage({
   params
@@ -24,7 +25,7 @@ export default async function FacilityDetailPage({
     notFound();
   }
 
-  const [facility, status, latestStatus, history, summary, sensorLogs, sensorSummary, forecast, recommendations] = await Promise.all([
+  const [facility, statusResponse, latestStatusResponse, history, summaryResponse, sensorLogs, sensorSummary, forecastResponse, recommendations] = await Promise.all([
     api.facility(id).catch(() => null),
     api.status(id).catch(() => null),
     api.latestStatus(id).catch(() => null),
@@ -36,7 +37,54 @@ export default async function FacilityDetailPage({
     api.recommendations(id).catch(() => [])
   ]);
 
-  if (!facility || !status || !latestStatus || !summary || !forecast) notFound();
+  if (!facility) notFound();
+
+  const status: FacilityStatus =
+    statusResponse ??
+    {
+      facility,
+      people_count: 0,
+      occupied_seats: 0,
+      available_seats: facility.total_seats,
+      occupancy_rate: 0,
+      congestion_level: "Low",
+      congestion_score: 0,
+      latest_analysis_id: null,
+      latest_analysis_at: null
+    };
+
+  const latestStatus: LatestStatus =
+    latestStatusResponse ??
+    {
+      facility_id: facility.id,
+      timestamp: status.latest_analysis_at ?? null,
+      people_count: status.people_count,
+      occupied_seats: status.occupied_seats,
+      available_seats: status.available_seats,
+      occupancy_rate: status.occupancy_rate,
+      congestion_score: status.congestion_score,
+      congestion_level: status.congestion_level,
+      confidence: null,
+      source_type: null,
+      analysis_id: status.latest_analysis_id ?? null,
+      image_url: null,
+      annotated_image_url: null
+    };
+
+  const summary: FacilitySummary =
+    summaryResponse ??
+    {
+      facility_id: facility.id,
+      latest_occupancy_rate: status.occupancy_rate,
+      average_occupancy_rate: 0,
+      peak_occupancy_rate: 0,
+      high_congestion_events: 0,
+      most_recent_timestamp: latestStatus.timestamp ?? null,
+      latest_people_count: latestStatus.people_count,
+      samples: history.length
+    };
+
+  const forecast: Forecast | null = forecastResponse;
 
   const image =
     facility.image_url ??
@@ -92,7 +140,13 @@ export default async function FacilityDetailPage({
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <HistoryChart data={history} />
-        <ForecastCard forecast={forecast} />
+        {forecast ? (
+          <ForecastCard forecast={forecast} />
+        ) : (
+          <div className="rounded-lg border border-line bg-white p-5 shadow-soft text-sm text-slate-500">
+            Forecast data is temporarily unavailable.
+          </div>
+        )}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
@@ -153,17 +207,23 @@ export default async function FacilityDetailPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {history.slice(0, 12).map((point) => (
-                <tr key={point.timestamp}>
-                  <td className="py-3">{shortDate(point.timestamp)}</td>
-                  <td>{point.people_count}</td>
-                  <td>{point.occupied_seats}</td>
-                  <td>{point.available_seats}</td>
-                  <td>{percent(point.occupancy_rate)}</td>
-                  <td><CongestionBadge level={point.congestion_level} /></td>
-                  <td>{point.congestion_level === "High" ? "High congestion event" : "-"}</td>
+              {history.length ? (
+                history.slice(0, 12).map((point) => (
+                  <tr key={point.timestamp}>
+                    <td className="py-3">{shortDate(point.timestamp)}</td>
+                    <td>{point.people_count}</td>
+                    <td>{point.occupied_seats}</td>
+                    <td>{point.available_seats}</td>
+                    <td>{percent(point.occupancy_rate)}</td>
+                    <td><CongestionBadge level={point.congestion_level} /></td>
+                    <td>{point.congestion_level === "High" ? "High congestion event" : "-"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="py-6 text-slate-500" colSpan={7}>No occupancy events have been recorded yet.</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

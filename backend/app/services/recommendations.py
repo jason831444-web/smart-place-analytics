@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -8,10 +6,11 @@ from app.schemas.operations import RecommendationRead
 from app.services.forecasting import forecast_response
 from app.services.operations import facility_summary, latest_status
 from app.services.sensors import sensor_summary
+from app.utils.time import utc_now
 
 
 def build_recommendations(db: Session, facility_id: int) -> list[RecommendationRead]:
-    created_at = datetime.utcnow()
+    created_at = utc_now()
     status = latest_status(db, facility_id)
     forecast = forecast_response(db, facility_id)
     sensors = sensor_summary(db, facility_id)

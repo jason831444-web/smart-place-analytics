@@ -128,3 +128,30 @@ def test_summary_forecast_and_sensor_summary_endpoints() -> None:
     sensor_summary = sensor_summary_response.json()
     assert sensor_summary["facility_id"] == facility_id
     assert sensor_summary["latest_power_kw"] == 11.8
+
+
+def test_empty_operations_endpoints_are_safe_and_invalid_facility_returns_404() -> None:
+    TestingSessionLocal = setup_app_db()
+    db = TestingSessionLocal()
+    facility = Facility(name="Quiet Room", type="Study Room", location="4F", total_seats=12)
+    db.add(facility)
+    db.commit()
+    facility_id = facility.id
+    db.close()
+
+    try:
+        client = TestClient(app)
+        latest_response = client.get(f"/api/facilities/{facility_id}/latest-status")
+        summary_response = client.get(f"/api/facilities/{facility_id}/summary")
+        forecast_response = client.get(f"/api/facilities/{facility_id}/forecast")
+        missing_response = client.get("/api/facilities/999999/summary")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert latest_response.status_code == 200
+    assert latest_response.json()["occupancy_rate"] == 0
+    assert summary_response.status_code == 200
+    assert summary_response.json()["samples"] == 0
+    assert forecast_response.status_code == 200
+    assert forecast_response.json()["method"] == "cold_start_baseline"
+    assert missing_response.status_code == 404

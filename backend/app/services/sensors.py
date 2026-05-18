@@ -7,6 +7,16 @@ from app.models import SensorLog
 from app.schemas.operations import SensorLogRead, SensorSummaryRead
 
 
+def normalize_sensor_source_type(source_type: str | None) -> str:
+    normalized = (source_type or "").strip().lower()
+    aliases = {
+        "simulator": "simulator",
+        "sensor_simulator": "simulator",
+        "seed": "simulator",
+    }
+    return aliases.get(normalized, "simulator")
+
+
 def create_sensor_log(
     db: Session,
     *,
@@ -27,7 +37,7 @@ def create_sensor_log(
         power_kw=power_kw,
         door_count=door_count,
         noise_level=noise_level,
-        source_type=source_type,
+        source_type=normalize_sensor_source_type(source_type),
     )
     db.add(log)
     db.flush()

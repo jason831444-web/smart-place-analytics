@@ -9,6 +9,7 @@ from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import Analysis, Facility, OccupancyLog, SensorLog, Upload, User
 from app.services.congestion import calculate_congestion
+from app.utils.time import utc_now
 
 
 def _demo_image(path: Path, title: str, color: tuple[int, int, int]) -> None:
@@ -60,7 +61,7 @@ def seed() -> None:
                         db.add(upload)
                         db.flush()
                         congestion = calculate_congestion(people, seats)
-                        timestamp = datetime.utcnow() - timedelta(days=day)
+                        timestamp = utc_now() - timedelta(days=day)
                         timestamp = timestamp.replace(hour=hour, minute=15, second=0, microsecond=0)
                         analysis = Analysis(
                             facility_id=facility.id,
@@ -88,7 +89,7 @@ def seed() -> None:
                                 congestion_score=analysis.congestion_score,
                                 congestion_level=analysis.congestion_level,
                                 confidence=0.72,
-                                source_type="seed",
+                                source_type="image_upload",
                                 image_path=str(image_path),
                                 annotated_image_path=str(image_path),
                                 created_at=timestamp,
@@ -101,7 +102,7 @@ def seed() -> None:
                         (13, 23.4 + index, 46 + index, 12.8 + index * 1.4, 34 + index * 2, 58 + index * 2),
                         (18, 22.1 + index, 44 + index, 10.4 + index, 24 + index * 2, 52 + index * 2),
                     ]:
-                        timestamp = datetime.utcnow() - timedelta(days=day)
+                        timestamp = utc_now() - timedelta(days=day)
                         timestamp = timestamp.replace(hour=hour, minute=10, second=0, microsecond=0)
                         db.add(
                             SensorLog(
@@ -112,7 +113,7 @@ def seed() -> None:
                                 power_kw=power_kw,
                                 door_count=door_count,
                                 noise_level=noise_level,
-                                source_type="seed",
+                                source_type="simulator",
                                 created_at=timestamp,
                             )
                         )

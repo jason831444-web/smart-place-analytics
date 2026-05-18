@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class BoundingBox(BaseModel):
@@ -13,6 +13,8 @@ class BoundingBox(BaseModel):
 
 
 class UploadRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     facility_id: int
     uploaded_by_user_id: int | None
@@ -21,11 +23,10 @@ class UploadRead(BaseModel):
     uploaded_at: datetime
     url: str | None = None
 
-    class Config:
-        from_attributes = True
-
 
 class AnalysisRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     facility_id: int
     upload_id: int
@@ -39,9 +40,6 @@ class AnalysisRead(BaseModel):
     created_at: datetime
     image_url: str | None = None
     annotated_image_url: str | None = None
-
-    class Config:
-        from_attributes = True
 
 
 class AnalyzeRequest(BaseModel):

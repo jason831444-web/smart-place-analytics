@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models import OccupancyLog
 from app.schemas.operations import ForecastRead
 from app.services.congestion import congestion_level_for_rate
+from app.utils.time import utc_now
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,7 @@ def _same_hour_average(db: Session, facility_id: int, timestamp: datetime, days:
 
 
 def forecast_occupancy(db: Session, facility_id: int, window_minutes: int = 60, now: datetime | None = None) -> ForecastResult:
-    now = now or datetime.utcnow()
+    now = now or utc_now()
     moving_average_samples = _moving_average(db, facility_id)
     hourly_samples = _same_hour_average(db, facility_id, now)
 
@@ -87,5 +88,5 @@ def forecast_response(db: Session, facility_id: int, window_minutes: int = 60) -
         confidence=result.confidence,
         method=result.method,
         explanation=result.explanation,
-        generated_at=datetime.utcnow(),
+        generated_at=utc_now(),
     )
